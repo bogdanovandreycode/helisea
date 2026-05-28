@@ -126,7 +126,7 @@ export class Game {
   }
 
   async _loadWorld() {
-    this._world   = new World(this._scene)
+    this._world   = new World(this._scene, this._camera)
     this._projMgr = new ProjectileManager(this._scene)
 
     this._convoy  = new Convoy(this._scene, this._projMgr, this._audio)

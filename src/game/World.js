@@ -3,6 +3,8 @@ import * as THREE from 'three'
 const OCEAN_VERT = /* glsl */`
   uniform float uTime;
   varying vec2  vUv;
+  varying vec3  vWorldPos;
+  varying float vWaveHeight;
 
   float wave(vec2 p, float freq, float speed, float amp, vec2 dir) {
     return amp * sin(dot(p, dir) * freq + uTime * speed);
@@ -16,6 +18,8 @@ const OCEAN_VERT = /* glsl */`
     pos.y += wave(pos.xz, 0.07,  0.9,  1.1, vec2(-0.6,  1.0));
     pos.y += wave(pos.xz, 0.11,  1.6,  0.6, vec2( 0.5, -0.5));
     pos.y += wave(pos.xz, 0.03,  0.45, 2.2, vec2( 1.0, -0.3));
+    vWaveHeight = pos.y;
+    vWorldPos = (modelMatrix * vec4(pos, 1.0)).xyz;
     gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
   }
 `
@@ -23,7 +27,10 @@ const OCEAN_VERT = /* glsl */`
 const OCEAN_FRAG = /* glsl */`
   uniform float uTime;
   uniform float uScrollZ;
+  uniform vec3  uCameraPos;
   varying vec2  vUv;
+  varying vec3  vWorldPos;
+  varying float vWaveHeight;
 
   void main() {
     vec2 uv = vUv;
@@ -32,17 +39,27 @@ const OCEAN_FRAG = /* glsl */`
 
     vec2 uv1 = uv * 12.0 + vec2( uTime * 0.04,  uTime * 0.025);
     vec2 uv2 = uv * 20.0 + vec2(-uTime * 0.03,  uTime * 0.05);
+    vec2 uv3 = uv * 36.0 + vec2( uTime * 0.02, -uTime * 0.03);
 
     float w1 = 0.5 + 0.5 * sin(uv1.x * 6.28 + uv1.y * 3.14);
     float w2 = 0.5 + 0.5 * sin(uv2.x * 4.0  + uv2.y * 8.0);
+    float ripple = 0.5 + 0.5 * sin(uv3.x * 11.0 + uv3.y * 7.0);
     float foam = w1 * w2;
 
-    vec3 deep    = vec3(0.03, 0.12, 0.28);
-    vec3 shallow = vec3(0.07, 0.28, 0.48);
-    vec3 foamCol = vec3(0.55, 0.70, 0.85);
+    vec3 viewDir = normalize(uCameraPos - vWorldPos);
+    float fresnel = pow(1.0 - max(viewDir.y, 0.0), 2.4);
+    float crest = smoothstep(0.7, 2.2, vWaveHeight);
+    float sparkle = smoothstep(0.78, 1.0, ripple) * (0.18 + 0.82 * foam);
 
-    vec3 col = mix(deep, shallow, foam * 0.45);
-    col = mix(col, foamCol, max(0.0, foam - 0.68) * 2.5);
+    vec3 deep    = vec3(0.02, 0.07, 0.16);
+    vec3 shallow = vec3(0.05, 0.18, 0.31);
+    vec3 moonlit = vec3(0.15, 0.31, 0.44);
+    vec3 foamCol = vec3(0.48, 0.62, 0.74);
+
+    vec3 col = mix(deep, shallow, foam * 0.35 + crest * 0.14);
+    col = mix(col, moonlit, fresnel * 0.28);
+    col += moonlit * sparkle * (0.08 + fresnel * 0.12);
+    col = mix(col, foamCol, max(0.0, foam - 0.72) * 1.8 + crest * 0.08);
 
     gl_FragColor = vec4(col, 1.0);
   }
@@ -67,8 +84,9 @@ const SKY_FRAG = /* glsl */`
 `
 
 export class World {
-  constructor(scene) {
+  constructor(scene, camera = null) {
     this._scene     = scene
+    this._camera    = camera
     this._scrollZ   = 0   // accumulated scroll for ocean UV
     this._oceanMat  = null
     this._setup()
@@ -129,6 +147,7 @@ export class World {
       uniforms: {
         uTime:    { value: 0 },
         uScrollZ: { value: 0 },
+        uCameraPos: { value: new THREE.Vector3() },
       },
       vertexShader:   OCEAN_VERT,
       fragmentShader: OCEAN_FRAG,
@@ -143,5 +162,8 @@ export class World {
     this._scrollZ += convoySpeed * dt
     this._oceanMat.uniforms.uTime.value    += dt
     this._oceanMat.uniforms.uScrollZ.value  = this._scrollZ
+    if (this._camera) {
+      this._oceanMat.uniforms.uCameraPos.value.copy(this._camera.position)
+    }
   }
 }
