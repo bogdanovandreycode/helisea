@@ -1,0 +1,2 @@
+VINT - положение dron_enemy_vint.glb
+COLLISION.000 (001, 002, etc) - mash коллизии 

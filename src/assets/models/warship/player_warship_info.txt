@@ -1,0 +1,5 @@
+CANNON - мастоположение player_warship_cannon.glb
+PVO_LEFT - местополоежние player_warship_pvo.glb на левом борту
+PVO_RIGHT - местополоежние player_warship_pvo.glb на правом борту
+SPANW_HELICOPTER - спавн и база для дозаправки верталёта игрока
+COLLISION.000 (001, 002, etc) - mash коллизии 
