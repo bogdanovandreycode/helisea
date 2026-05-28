@@ -45,6 +45,9 @@ export class HUD {
         <button class="menu-btn" id="btn-restart">НАЧАТЬ ЗАНОВО</button>
       </div>
 
+      <!-- Eagle-vision target markers -->
+      <div id="eagle-vision" class="hidden"></div>
+
       <!-- In-game HUD -->
       <div id="hud" class="hidden">
         <!-- Crosshair -->
@@ -106,6 +109,7 @@ export class HUD {
       'hp-warship','hp-cargo0','hp-cargo1','hp-cargo2','hp-heli',
       'hit-flash','respawn-msg','respawn-cnt',
       'lock-prompt','waveclear-text','go-wave-txt','go-score-txt',
+      'eagle-vision',
     ]
     for (const id of ids) this._el[id] = document.getElementById(id)
   }
@@ -118,8 +122,8 @@ export class HUD {
   hideLoading()  { this._hide('loading') }
   showMenu()     { this._show('menu') }
   hideMenu()     { this._hide('menu') }
-  showGame()     { this._show('hud'); this._hide('menu'); this._hide('gameover') }
-  hideGame()     { this._hide('hud') }
+  showGame()     { this._show('hud'); this._show('eagle-vision'); this._hide('menu'); this._hide('gameover') }
+  hideGame()     { this._hide('hud'); this._hide('eagle-vision') }
 
   showWaveClear(wave, score) {
     this._el['waveclear-text'].textContent = `Волна ${wave} завершена! Счёт: ${score}`
@@ -189,5 +193,31 @@ export class HUD {
     if (!el) return
     el.classList.add('active')
     setTimeout(() => el.classList.remove('active'), 120)
+  }
+
+  /**
+   * Eagle-vision: render world-space targets as screen-space markers.
+   * @param {THREE.Camera} camera
+   * @param {Array<{pos: THREE.Vector3, label: string, type: 'drone'|'ship'}>} targets
+   */
+  updateEagleVision(camera, targets) {
+    const container = this._el['eagle-vision']
+    if (!container) return
+    container.innerHTML = ''
+    const W = window.innerWidth
+    const H = window.innerHeight
+    for (const t of targets) {
+      const ndc = t.pos.clone().project(camera)
+      if (ndc.z > 1) continue   // behind camera
+      const x = ( ndc.x * 0.5 + 0.5) * W
+      const y = (-ndc.y * 0.5 + 0.5) * H
+      if (x < -60 || x > W + 60 || y < -60 || y > H + 60) continue
+      const el = document.createElement('div')
+      el.className = `eagle-marker eagle-${t.type}`
+      el.style.left = x + 'px'
+      el.style.top  = y + 'px'
+      el.textContent = t.label
+      container.appendChild(el)
+    }
   }
 }

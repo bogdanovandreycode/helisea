@@ -34,23 +34,19 @@ class AutoDefense {
     this.projMgr  = projMgr
     this.audio    = audio
     this.opts     = opts
-    this._cd      = 0
+    this._cd      = opts.type === 'pvo' ? 10 : 0   // PVO has initial delay
     this._rotating = false
 
-    // The mountNode is an Object3D inside the warship GLTF
-    // Add the weapon model as a child of it
-    this._weaponRoot = mountNode
+    this._weaponRoot  = mountNode
     this._weaponScene = gltfScene
     mountNode.add(gltfScene)
 
-    // Find firing point in the weapon model
     this._firingNode = findNode(gltfScene, 'WEAPON')
   }
 
   update(dt, drones, listenerPos) {
     if (!drones.length) return
 
-    // Find nearest drone in range
     const wPos = new THREE.Vector3()
     this._weaponRoot.getWorldPosition(wPos)
 
@@ -66,23 +62,19 @@ class AutoDefense {
 
     if (!nearest) { this._rotating = false; return }
 
-    // Rotate weapon root toward drone
+    // Rotate toward target
     _tmp.copy(nearest.getPosition()).sub(wPos).normalize()
     const targetAngle = Math.atan2(_tmp.x, _tmp.z)
     const curAngle    = this._weaponRoot.rotation.y
-    const diff = targetAngle - curAngle
-    const rotSpeed = this.opts.type === 'cannon' ? 1.5 : 3.5
+    const diff        = targetAngle - curAngle
+    const rotSpeed    = this.opts.type === 'cannon' ? 1.5 : 3.5
 
     const delta = Math.max(-rotSpeed * dt, Math.min(rotSpeed * dt, diff))
     if (Math.abs(delta) > 0.001) {
       this._weaponRoot.rotation.y += delta
       if (!this._rotating) {
         this._rotating = true
-        if (listenerPos) {
-          this.audio.play3D('weaponRotation', wPos, listenerPos, 350, 0.5)
-        } else {
-          this.audio.play('weaponRotation', 0.3)
-        }
+        // Rotation SFX intentionally disabled: it produced a loud hum during dive phases.
       }
     } else {
       this._rotating = false
@@ -91,7 +83,8 @@ class AutoDefense {
     // Fire
     this._cd -= dt
     if (this._cd <= 0) {
-      this._cd = 1 / this.opts.fireRate
+      const fireRate = this.opts.type === 'pvo' ? 30 : 1 / this.opts.fireRate
+      this._cd = fireRate
 
       const firePos = new THREE.Vector3()
       if (this._firingNode) {
@@ -100,17 +93,25 @@ class AutoDefense {
         this._weaponRoot.getWorldPosition(firePos)
       }
 
-      // Lead the target slightly
-      const dir = new THREE.Vector3()
-        .subVectors(nearest.getPosition(), firePos)
-        .normalize()
-
-      this.projMgr.spawn(firePos, dir, {
-        type:    this.opts.type === 'cannon' ? 'cannon' : 'pvo',
-        speed:   this.opts.projSpeed,
-        damage:  this.opts.damage,
-        maxDist: this.opts.range + 50,
-      })
+      if (this.opts.type === 'pvo') {
+        // Homing missile
+        this.projMgr.spawnHoming(firePos, nearest, {
+          speed:   this.opts.projSpeed,
+          damage:  this.opts.damage,
+          maxDist: this.opts.range + 100,
+        })
+      } else {
+        // Cannon tracer
+        const dir = new THREE.Vector3()
+          .subVectors(nearest.getPosition(), firePos)
+          .normalize()
+        this.projMgr.spawn(firePos, dir, {
+          type:    'cannon',
+          speed:   this.opts.projSpeed,
+          damage:  this.opts.damage,
+          maxDist: this.opts.range + 50,
+        })
+      }
 
       if (listenerPos) {
         this.audio.play3D(this.opts.soundKey, firePos, listenerPos, 400, 1.0)
@@ -132,11 +133,13 @@ export class Convoy {
     this.warshipRoot   = null
     this.warshipHP     = 100
     this.warshipMaxHP  = 100
+    this.warshipCollision = []   // BVH collision meshes
 
     /* cargo ships */
     this.cargoRoots    = []
     this.cargoHP       = []
     this.cargoMaxHP    = 100
+    this.cargoCollision = []    // [meshes[]] per cargo ship
 
     /* auto-defenses */
     this._defenses = []
@@ -163,13 +166,14 @@ export class Convoy {
     ])
 
     const body = warshipGltf.scene
-    hideCollision(body)
+    const collMeshes = hideCollision(body)
     enableShadows(body)
 
     this.warshipRoot = new THREE.Object3D()
     this.warshipRoot.position.set(0, 0, 0)
     this.warshipRoot.add(body)
     this.scene.add(this.warshipRoot)
+    this.warshipCollision = collMeshes
 
     // Helicopter spawn point
     const spawnNode = findNode(body, 'SPANW_HELICOPTER') || findNode(body, 'SPAWN_HELICOPTER')
@@ -214,7 +218,7 @@ export class Convoy {
 
     for (let i = 0; i < CARGO_OFFSETS.length; i++) {
       const scene = gltf.scene.clone(true)
-      hideCollision(scene)
+      const collMeshes = hideCollision(scene)
       enableShadows(scene)
 
       const root = new THREE.Object3D()
@@ -224,6 +228,7 @@ export class Convoy {
 
       this.cargoRoots.push(root)
       this.cargoHP.push(this.cargoMaxHP)
+      this.cargoCollision.push(collMeshes)
     }
   }
 

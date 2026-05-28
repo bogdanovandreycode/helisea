@@ -66,7 +66,7 @@ export class Helicopter {
 
     /* body */
     this._bodyScene = bodyGltf.scene
-    hideCollision(this._bodyScene)
+    this._collisionMeshes = hideCollision(this._bodyScene)
     enableShadows(this._bodyScene)
     this.root.add(this._bodyScene)
 
@@ -126,7 +126,7 @@ export class Helicopter {
     this.root.rotation.y = this._yaw
 
     /* ── camera pitch from mouse Y ── */
-    this._pitch -= mouseDelta.dy * MOUSE_SENS
+    this._pitch += mouseDelta.dy * MOUSE_SENS
     this._pitch = Math.max(-_HALF * 0.9, Math.min(_HALF * 0.6, this._pitch))
     if (this._cameraNode) this._cameraNode.rotation.x = this._pitch
 
@@ -151,7 +151,7 @@ export class Helicopter {
 
     /* ── body tilt (visual) ── */
     const targetTiltX =  dz * TILT_AMOUNT  // pitch forward/back
-    const targetTiltZ = -dx * TILT_AMOUNT  // roll left/right
+    const targetTiltZ =  dx * TILT_AMOUNT  // roll left/right
     const lerpRate = 5 * dt
     this._tiltX += (targetTiltX - this._tiltX) * lerpRate
     this._tiltZ += (targetTiltZ - this._tiltZ) * lerpRate

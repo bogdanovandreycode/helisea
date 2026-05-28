@@ -35,14 +35,21 @@ export function findNodes(root, prefix) {
 
 /**
  * Hide all meshes whose names start with "COLLISION".
- * Returns an array of the hidden meshes (useful for later BVH / sphere tests).
+ * Also builds a BVH on their geometry (three-mesh-bvh must be patched in main.js).
+ * Returns an array of the collision meshes (invisible but available for raycast tests).
  */
 export function hideCollision(root) {
   const meshes = []
   root.traverse(obj => {
     if (obj.name.startsWith('COLLISION')) {
       obj.visible = false
-      if (obj.isMesh) meshes.push(obj)
+      if (obj.isMesh) {
+        // Build BVH if the prototype extension is present (patched in main.js)
+        if (obj.geometry.computeBoundsTree) {
+          obj.geometry.computeBoundsTree()
+        }
+        meshes.push(obj)
+      }
     }
   })
   return meshes

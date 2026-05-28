@@ -99,8 +99,8 @@ export class WaveManager {
       }
     }
 
-    // Update alive drones
-    for (const d of this._drones) d.update(dt)
+    // Update alive drones – pass helicopter position for targeting
+    for (const d of this._drones) d.update(dt, listenerPos)
 
     // Purge dead drones (mesh already removed in _die())
     this._drones = this._drones.filter(d => d.isAlive())
