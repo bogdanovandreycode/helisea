@@ -143,9 +143,16 @@ export class WaveManager {
     const drone = new Drone(this.scene, pos, this.projMgr, this.audio)
     drone.buildMesh()
 
-    // Assign a random target from convoy ships
+    // Priority targeting: cargo first, then warship.
     if (this._targets.length > 0) {
-      const t = this._targets[Math.floor(Math.random() * this._targets.length)]
+      const cargoTargets = this._targets.filter(t => t.type === 'cargo' && t.alive)
+      const warshipTargets = this._targets.filter(t => t.type === 'warship' && t.alive)
+
+      let pool = cargoTargets
+      if (pool.length === 0) pool = warshipTargets
+      if (pool.length === 0) pool = this._targets
+
+      const t = pool[Math.floor(Math.random() * pool.length)]
       drone.setTarget(t.position, t.radius)
     }
 

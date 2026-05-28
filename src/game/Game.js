@@ -233,6 +233,9 @@ export class Game {
     /* Convoy + defenses */
     this._convoy.update(dt, this._waves.getDrones(), listenerPos)
 
+    // Keep target priorities up to date (cargo first, warship fallback).
+    this._waves.setTargets(this._convoy.getTargetList())
+
     /* Waves / drones – pass helicopter position so drones can fire at it */
     this._waves.update(dt, listenerPos)
 

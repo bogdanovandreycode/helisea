@@ -282,15 +282,31 @@ export class Convoy {
     return p
   }
 
-  /** Returns [{position, radius}] for all ships – used by WaveManager. */
+  /** Returns prioritized alive targets: cargo first, then warship. */
   getTargetList() {
-    const list = [{
-      position: this.getWarshipPosition(),
-      radius:   30,
-    }]
+    const list = []
+
     for (let i = 0; i < this.cargoRoots.length; i++) {
-      list.push({ position: this.getCargoShipPosition(i), radius: 24 })
+      if (this.cargoRoots[i] && this.cargoHP[i] > 0) {
+        list.push({
+          position: this.getCargoShipPosition(i),
+          radius: 24,
+          type: 'cargo',
+          alive: true,
+          index: i,
+        })
+      }
     }
+
+    if (this.warshipRoot && this.warshipHP > 0) {
+      list.push({
+        position: this.getWarshipPosition(),
+        radius: 30,
+        type: 'warship',
+        alive: true,
+      })
+    }
+
     return list
   }
 
