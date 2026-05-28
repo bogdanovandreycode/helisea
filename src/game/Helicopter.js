@@ -4,6 +4,7 @@ import { MODELS } from './assets.js'
 
 const _PI2  = Math.PI * 2
 const _HALF = Math.PI / 2
+const CAMERA_FORWARD_OFFSET = Math.PI
 
 /* Flight tuning */
 const MOVE_SPEED   = 30    // units/s horizontal
@@ -43,7 +44,7 @@ export class Helicopter {
     /* orientation */
     this._yaw   = 0    // world-space heading (radians, around Y)
     this._pitch = 0    // extra camera look-up/down (radians)
-    this._cameraYaw = Math.PI
+    this._cameraYaw = 0
 
     /* state */
     this.hp        = 100
@@ -60,11 +61,12 @@ export class Helicopter {
     this._bodyScene  = null
     this._vint       = null
     this._cameraNode = null
+    this._cameraBaseRotation = new THREE.Euler()
     this._weaponL    = null
     this._weaponR    = null
     this._freeLookActive = false
     this._freeLookRestorePitch = 0
-    this._freeLookRestoreYaw = Math.PI
+    this._freeLookRestoreYaw = 0
 
     /* smoothed tilt */
     this._tiltX = 0  // pitch tilt of body
@@ -104,6 +106,7 @@ export class Helicopter {
       // Fallback: use root as camera parent
       this._cameraNode = this.root
     }
+    this._cameraBaseRotation.copy(this._cameraNode.rotation)
 
     /* weapon mounts */
     this._weaponL = findNode(this._bodyScene, 'WEAPON_LEFT')
@@ -165,19 +168,20 @@ export class Helicopter {
     /* ── yaw from mouse X ── */
     if (this._freeLookActive) {
       this._cameraYaw -= mouseDelta.dx * MOUSE_SENS
-      this._cameraYaw = Math.max(Math.PI - _HALF, Math.min(Math.PI + _HALF, this._cameraYaw))
+      this._cameraYaw = Math.max(-_HALF, Math.min(_HALF, this._cameraYaw))
     } else {
       this._yaw -= mouseDelta.dx * MOUSE_SENS
       this.root.rotation.y = this._yaw
-      this._cameraYaw = Math.PI
+      this._cameraYaw = 0
     }
 
     /* ── camera pitch from mouse Y ── */
     this._pitch += mouseDelta.dy * MOUSE_SENS
     this._pitch = Math.max(-_HALF * 0.9, Math.min(_HALF * 0.6, this._pitch))
     if (this._cameraNode) {
-      this._cameraNode.rotation.x = this._pitch
-      this._cameraNode.rotation.y = this._cameraYaw
+      this._cameraNode.rotation.x = this._cameraBaseRotation.x + this._pitch
+      this._cameraNode.rotation.y = this._cameraBaseRotation.y + CAMERA_FORWARD_OFFSET + this._cameraYaw
+      this._cameraNode.rotation.z = this._cameraBaseRotation.z
     }
 
     /* ── movement ── */
@@ -313,8 +317,8 @@ export class Helicopter {
       this.scene.remove(this.camera)
       this._cameraNode.add(this.camera)
       this.camera.position.set(0, 0, 0)
-      this.camera.rotation.set(0, Math.PI, 0)
-      this._cameraYaw = Math.PI
+      this.camera.rotation.set(0, 0, 0)
+      this._cameraYaw = 0
     }
   }
 
@@ -325,11 +329,11 @@ export class Helicopter {
     this._alive = true
     this._yaw   = 0
     this._pitch = 0
-    this._cameraYaw = Math.PI
+    this._cameraYaw = 0
     this._engineRate = ENGINE_RATE_BASE
     this._freeLookActive = false
     this._freeLookRestorePitch = 0
-    this._freeLookRestoreYaw = Math.PI
+    this._freeLookRestoreYaw = 0
     this.root.visible = true
     this.root.rotation.set(0, 0, 0)
     if (spawnPos) this.root.position.copy(spawnPos)
@@ -341,7 +345,7 @@ export class Helicopter {
       if (this.camera.parent) this.camera.parent.remove(this.camera)
       this._cameraNode.add(this.camera)
       this.camera.position.set(0, 0, 0)
-      this.camera.rotation.set(0, Math.PI, 0)
+      this.camera.rotation.set(0, 0, 0)
     }
   }
 }
