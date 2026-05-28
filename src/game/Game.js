@@ -244,7 +244,8 @@ export class Game {
     const inRefillZone = preHeliPos.distanceTo(spawnPos) < 34
 
     /* Helicopter */
-    this._heli.update(dt, this._keys, this._mouseDelta, this._firing, inRefillZone)
+    const freeLook = this._keys.has('ControlLeft') || this._keys.has('ControlRight')
+    this._heli.update(dt, this._keys, this._mouseDelta, this._firing, inRefillZone, freeLook)
 
     const listenerPos = this._heli.getPosition()
 
@@ -395,7 +396,8 @@ export class Game {
           : proj.position.distanceTo(drone.getPosition()) < R_DRONE + 3.2
 
         if (droneHit) {
-          drone.hit(proj.damage)
+          // Homing missiles always one-shot drones regardless of remaining HP.
+          drone.hit(drone.hp)
           proj.destroy()
           this._score += 50
           break

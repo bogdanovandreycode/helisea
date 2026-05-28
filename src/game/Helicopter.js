@@ -18,7 +18,7 @@ const ENGINE_RATE_MIN  = 0.86
 const ENGINE_RATE_MAX  = 1.28
 
 /* Weapon */
-const FIRE_RATE    = 0.28  // seconds between shots
+const FIRE_RATE    = 0.14  // seconds between shots
 const SUPPLIES_MAX = 100
 
 /* Resource system */
@@ -43,6 +43,7 @@ export class Helicopter {
     /* orientation */
     this._yaw   = 0    // world-space heading (radians, around Y)
     this._pitch = 0    // extra camera look-up/down (radians)
+    this._cameraYaw = Math.PI
 
     /* state */
     this.hp        = 100
@@ -61,6 +62,9 @@ export class Helicopter {
     this._cameraNode = null
     this._weaponL    = null
     this._weaponR    = null
+    this._freeLookActive = false
+    this._freeLookRestorePitch = 0
+    this._freeLookRestoreYaw = Math.PI
 
     /* smoothed tilt */
     this._tiltX = 0  // pitch tilt of body
@@ -129,8 +133,9 @@ export class Helicopter {
    * @param {object}  mouseDelta  {dx, dy}  accumulated mouse movement
    * @param {boolean} firing  left mouse button held
    * @param {boolean} inRefillZone near helicopter spawn refill zone
+   * @param {boolean} freeLook Ctrl-held camera freelook mode
    */
-  update(dt, keys, mouseDelta, firing, inRefillZone = false) {
+  update(dt, keys, mouseDelta, firing, inRefillZone = false, freeLook = false) {
     if (!this._alive) {
       this._respawnTimer -= dt
       if (this._respawnTimer <= 0) this._respawn()
@@ -147,14 +152,33 @@ export class Helicopter {
       this.fuel = Math.max(0, this.fuel - FUEL_DRAIN_SEC * dt)
     }
 
+    if (freeLook && !this._freeLookActive) {
+      this._freeLookActive = true
+      this._freeLookRestorePitch = this._pitch
+      this._freeLookRestoreYaw = this._cameraYaw
+    } else if (!freeLook && this._freeLookActive) {
+      this._freeLookActive = false
+      this._pitch = this._freeLookRestorePitch
+      this._cameraYaw = this._freeLookRestoreYaw
+    }
+
     /* ── yaw from mouse X ── */
-    this._yaw -= mouseDelta.dx * MOUSE_SENS
-    this.root.rotation.y = this._yaw
+    if (this._freeLookActive) {
+      this._cameraYaw -= mouseDelta.dx * MOUSE_SENS
+      this._cameraYaw = Math.max(Math.PI - _HALF, Math.min(Math.PI + _HALF, this._cameraYaw))
+    } else {
+      this._yaw -= mouseDelta.dx * MOUSE_SENS
+      this.root.rotation.y = this._yaw
+      this._cameraYaw = Math.PI
+    }
 
     /* ── camera pitch from mouse Y ── */
     this._pitch += mouseDelta.dy * MOUSE_SENS
     this._pitch = Math.max(-_HALF * 0.9, Math.min(_HALF * 0.6, this._pitch))
-    if (this._cameraNode) this._cameraNode.rotation.x = this._pitch
+    if (this._cameraNode) {
+      this._cameraNode.rotation.x = this._pitch
+      this._cameraNode.rotation.y = this._cameraYaw
+    }
 
     /* ── movement ── */
     const fwd  = new THREE.Vector3( Math.sin(this._yaw), 0,  Math.cos(this._yaw))
@@ -290,6 +314,7 @@ export class Helicopter {
       this._cameraNode.add(this.camera)
       this.camera.position.set(0, 0, 0)
       this.camera.rotation.set(0, Math.PI, 0)
+      this._cameraYaw = Math.PI
     }
   }
 
@@ -300,7 +325,11 @@ export class Helicopter {
     this._alive = true
     this._yaw   = 0
     this._pitch = 0
+    this._cameraYaw = Math.PI
     this._engineRate = ENGINE_RATE_BASE
+    this._freeLookActive = false
+    this._freeLookRestorePitch = 0
+    this._freeLookRestoreYaw = Math.PI
     this.root.visible = true
     this.root.rotation.set(0, 0, 0)
     if (spawnPos) this.root.position.copy(spawnPos)
