@@ -203,7 +203,7 @@ export class Helicopter {
 
     /* ── body tilt (visual) ── */
     const targetTiltX = moveForward * TILT_AMOUNT   // pitch forward/back in local heli space
-    const targetTiltZ = -moveStrafe * TILT_AMOUNT   // roll left/right in local heli space
+    const targetTiltZ = moveStrafe * TILT_AMOUNT   // roll left/right in local heli space
     const lerpRate = 5 * dt
     this._tiltX += (targetTiltX - this._tiltX) * lerpRate
     this._tiltZ += (targetTiltZ - this._tiltZ) * lerpRate

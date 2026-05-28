@@ -12,6 +12,10 @@ const R_DRONE    = 5
 const R_WARSHIP  = 32
 const R_CARGO    = 26
 const R_HELI     = 8
+const WATER_SURFACE_Y = 0
+const WATER_CONTACT_HEIGHT = 4.5
+const WATER_CONTACT_DAMAGE = 12
+const WATER_CONTACT_COOLDOWN = 0.6
 
 /* Shared raycaster for BVH collision */
 const _ray       = new THREE.Raycaster()
@@ -90,6 +94,7 @@ export class Game {
 
     /* Contact collision cooldown (ram damage) */
     this._contactHitCd = 0
+    this._waterHitCd = 0
   }
 
   /* ════════════════════════════════════════════════
@@ -232,6 +237,7 @@ export class Game {
 
   _update(dt) {
     this._contactHitCd = Math.max(0, this._contactHitCd - dt)
+    this._waterHitCd = Math.max(0, this._waterHitCd - dt)
 
     const spawnPos = this._convoy.getHelicopterSpawnPosition()
     const preHeliPos = this._heli.getPosition()
@@ -242,8 +248,18 @@ export class Game {
 
     const listenerPos = this._heli.getPosition()
 
-    /* Water level game over */
-    if (this._heli.isAlive() && listenerPos.y < 0) {
+    /* Water contact damage */
+    if (
+      this._heli.isAlive() &&
+      this._waterHitCd <= 0 &&
+      listenerPos.y <= WATER_SURFACE_Y + WATER_CONTACT_HEIGHT
+    ) {
+      this._heli.hit(WATER_CONTACT_DAMAGE)
+      this._hud.flashHit()
+      this._waterHitCd = WATER_CONTACT_COOLDOWN
+    }
+
+    if (!this._heli.isAlive()) {
       this._gameOver()
       return
     }
