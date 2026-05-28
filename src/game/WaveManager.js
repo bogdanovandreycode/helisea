@@ -118,7 +118,7 @@ export class WaveManager {
       }
     }
     const distFactor = (listenerPos && minDist < Infinity) ? Math.max(0, 1 - minDist / 400) : 1
-    const targetVol = Math.min(activeCnt * 0.08, 0.6) * distFactor
+    const targetVol = Math.min(activeCnt * 0.04, 0.3) * distFactor
     this._droneVolume += (targetVol - this._droneVolume) * Math.min(dt * 2, 1)
     this.audio.setLoopVolume('droneNoise', this._droneVolume)
     if (activeCnt > 0 && this._droneVolume > 0.01) {

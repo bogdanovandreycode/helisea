@@ -336,7 +336,7 @@ export class Game {
   _setupScene() {
     this._scene  = new THREE.Scene()
     this._camera = new THREE.PerspectiveCamera(
-      75, window.innerWidth / window.innerHeight, 0.5, 2000
+      75, window.innerWidth / window.innerHeight, 0.1, 2000
     )
     // Initial position (cinema); overridden when in cockpit
     this._camera.position.set(280, 90, 0)

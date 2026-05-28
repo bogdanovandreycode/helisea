@@ -131,7 +131,7 @@ export class Helicopter {
     if (this._cameraNode) this._cameraNode.rotation.x = this._pitch
 
     /* ── movement ── */
-    const fwd  = new THREE.Vector3(-Math.sin(this._yaw), 0, -Math.cos(this._yaw))
+    const fwd  = new THREE.Vector3( Math.sin(this._yaw), 0,  Math.cos(this._yaw))
     const right = new THREE.Vector3( Math.cos(this._yaw), 0, -Math.sin(this._yaw))
 
     let dx = 0, dz = 0, dy = 0
@@ -150,7 +150,7 @@ export class Helicopter {
     )
 
     /* ── body tilt (visual) ── */
-    const targetTiltX = -dz * TILT_AMOUNT  // pitch forward/back
+    const targetTiltX =  dz * TILT_AMOUNT  // pitch forward/back
     const targetTiltZ = -dx * TILT_AMOUNT  // roll left/right
     const lerpRate = 5 * dt
     this._tiltX += (targetTiltX - this._tiltX) * lerpRate
@@ -234,7 +234,7 @@ export class Helicopter {
       this.scene.remove(this.camera)
       this._cameraNode.add(this.camera)
       this.camera.position.set(0, 0, 0)
-      this.camera.rotation.set(0, 0, 0)
+      this.camera.rotation.set(0, Math.PI, 0)
     }
   }
 
@@ -253,7 +253,7 @@ export class Helicopter {
       if (this.camera.parent) this.camera.parent.remove(this.camera)
       this._cameraNode.add(this.camera)
       this.camera.position.set(0, 0, 0)
-      this.camera.rotation.set(0, 0, 0)
+      this.camera.rotation.set(0, Math.PI, 0)
     }
   }
 }
