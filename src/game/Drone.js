@@ -185,7 +185,7 @@ export class Drone {
   }
 
   _spinRotor(dt) {
-    if (this._vint) this._vint.rotation.z += this._vintSpd * dt
+    if (this._vint) this._vint.rotation.y += this._vintSpd * dt
   }
 
   getRadius() { return 5 }
