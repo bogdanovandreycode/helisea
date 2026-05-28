@@ -219,8 +219,12 @@ export class Game {
   _update(dt) {
     this._contactHitCd = Math.max(0, this._contactHitCd - dt)
 
+    const spawnPos = this._convoy.getHelicopterSpawnPosition()
+    const preHeliPos = this._heli.getPosition()
+    const inRefillZone = preHeliPos.distanceTo(spawnPos) < 34
+
     /* Helicopter */
-    this._heli.update(dt, this._keys, this._mouseDelta, this._firing)
+    this._heli.update(dt, this._keys, this._mouseDelta, this._firing, inRefillZone)
 
     const listenerPos = this._heli.getPosition()
 
@@ -262,6 +266,8 @@ export class Game {
       score:       this._score,
       drones:      this._waves.getDrones().filter(d => d.isAlive()).length,
       ammo:        this._heli.ammo,
+      fuel:        this._heli.fuel,
+      fuelMax:     120,
       warshipHP:   this._convoy.warshipHP,
       warshipMaxHP: this._convoy.warshipMaxHP,
       cargoHP:     this._convoy.cargoHP,

@@ -16,7 +16,13 @@ const MAX_ALTITUDE = 180
 
 /* Weapon */
 const FIRE_RATE    = 0.28  // seconds between shots
-const AMMO_MAX     = 120
+const SUPPLIES_MAX = 100
+
+/* Resource system */
+const FUEL_MAX       = 120                // seconds of flight
+const FUEL_DRAIN_SEC = FUEL_MAX / 120     // 2 minutes total
+const FUEL_FILL_SEC  = FUEL_MAX / 4       // full refuel in ~4s
+const SUPPLIES_FILL  = 42                 // units/sec at spawn zone
 
 export class Helicopter {
   /**
@@ -37,7 +43,8 @@ export class Helicopter {
 
     /* state */
     this.hp        = 100
-    this.ammo      = AMMO_MAX
+    this.supplies  = SUPPLIES_MAX
+    this.fuel      = FUEL_MAX
     this._fireCd   = 0
     this._fireAlt  = false   // alternate left/right
     this._alive    = true
@@ -104,6 +111,9 @@ export class Helicopter {
     return p
   }
 
+  // Backward-compat for existing HUD/state wiring.
+  get ammo() { return Math.floor(this.supplies) }
+
   isAlive() { return this._alive }
 
   /* ─────────────── input & update ─────────────── */
@@ -113,12 +123,21 @@ export class Helicopter {
    * @param {Set}     keys  set of pressed KeyboardEvent.codes
    * @param {object}  mouseDelta  {dx, dy}  accumulated mouse movement
    * @param {boolean} firing  left mouse button held
+   * @param {boolean} inRefillZone near helicopter spawn refill zone
    */
-  update(dt, keys, mouseDelta, firing) {
+  update(dt, keys, mouseDelta, firing, inRefillZone = false) {
     if (!this._alive) {
       this._respawnTimer -= dt
       if (this._respawnTimer <= 0) this._respawn()
       return
+    }
+
+    // Fuel drains during flight; both resources refill near spawn.
+    if (inRefillZone) {
+      this.fuel = Math.min(FUEL_MAX, this.fuel + FUEL_FILL_SEC * dt)
+      this.supplies = Math.min(SUPPLIES_MAX, this.supplies + SUPPLIES_FILL * dt)
+    } else {
+      this.fuel = Math.max(0, this.fuel - FUEL_DRAIN_SEC * dt)
     }
 
     /* ── yaw from mouse X ── */
@@ -135,12 +154,14 @@ export class Helicopter {
     const right = new THREE.Vector3( Math.cos(this._yaw), 0, -Math.sin(this._yaw))
 
     let dx = 0, dz = 0, dy = 0
-    if (keys.has('KeyW')) { dx += fwd.x;   dz += fwd.z;   }
-    if (keys.has('KeyS')) { dx -= fwd.x;   dz -= fwd.z;   }
-    if (keys.has('KeyD')) { dx -= right.x; dz -= right.z; }
-    if (keys.has('KeyA')) { dx += right.x; dz += right.z; }
-    if (keys.has('Space'))      dy =  1
-    if (keys.has('ShiftLeft') || keys.has('ShiftRight')) dy = -1
+    if (this.fuel > 0) {
+      if (keys.has('KeyW')) { dx += fwd.x;   dz += fwd.z;   }
+      if (keys.has('KeyS')) { dx -= fwd.x;   dz -= fwd.z;   }
+      if (keys.has('KeyD')) { dx -= right.x; dz -= right.z; }
+      if (keys.has('KeyA')) { dx += right.x; dz += right.z; }
+      if (keys.has('Space'))      dy =  1
+      if (keys.has('ShiftLeft') || keys.has('ShiftRight')) dy = -1
+    }
 
     this.root.position.x += dx * MOVE_SPEED * dt
     this.root.position.z += dz * MOVE_SPEED * dt
@@ -165,14 +186,14 @@ export class Helicopter {
 
     /* ── fire ── */
     this._fireCd -= dt
-    if (firing && this._fireCd <= 0 && this.ammo > 0) {
+    if (firing && this._fireCd <= 0 && this.supplies > 0 && this.fuel > 0) {
       this._fire()
     }
   }
 
   _fire() {
     this._fireCd = FIRE_RATE
-    this.ammo--
+    this.supplies = Math.max(0, this.supplies - 1)
 
     /* Get world-space position & direction of camera */
     const dir = new THREE.Vector3()
@@ -226,7 +247,8 @@ export class Helicopter {
   _respawn() {
     this._alive = true
     this.hp     = 100
-    this.ammo   = AMMO_MAX
+    this.supplies = SUPPLIES_MAX
+    this.fuel = FUEL_MAX
     this.root.visible = true
 
     // Re-attach camera
@@ -240,7 +262,8 @@ export class Helicopter {
 
   reset(spawnPos) {
     this.hp     = 100
-    this.ammo   = AMMO_MAX
+    this.supplies = SUPPLIES_MAX
+    this.fuel = FUEL_MAX
     this._alive = true
     this._yaw   = 0
     this._pitch = 0

@@ -87,7 +87,8 @@ export class HUD {
         <!-- Ammo panel (bottom-right) -->
         <div id="ammo-panel">
           <div class="ammo-count" id="hud-ammo">120</div>
-          <div class="ammo-label">РАКЕТЫ</div>
+          <div class="ammo-label">ПРИПАСЫ</div>
+          <div class="fuel-line">ТОПЛИВО <b id="hud-fuel">100%</b></div>
         </div>
 
         <!-- Hit flash -->
@@ -105,7 +106,7 @@ export class HUD {
     const ids = [
       'loading','menu','waveclear','gameover','hud',
       'btn-start','btn-restart',
-      'hud-wave','hud-score','hud-drones','hud-ammo',
+      'hud-wave','hud-score','hud-drones','hud-ammo','hud-fuel',
       'hp-warship','hp-cargo0','hp-cargo1','hp-cargo2','hp-heli',
       'hit-flash','respawn-msg','respawn-cnt',
       'lock-prompt','waveclear-text','go-wave-txt','go-score-txt',
@@ -158,6 +159,8 @@ export class HUD {
     set('hud-score',  state.score.toLocaleString())
     set('hud-drones', state.drones)
     set('hud-ammo',   state.ammo)
+    const fuelMax = state.fuelMax || 120
+    set('hud-fuel',   `${Math.round((state.fuel / fuelMax) * 100)}%`)
 
     this._setBar('hp-warship', state.warshipHP, state.warshipMaxHP)
     for (let i = 0; i < 3; i++) {
