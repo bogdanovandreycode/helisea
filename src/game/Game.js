@@ -73,6 +73,9 @@ export class Game {
 
     /* Cinematic camera state (menu) */
     this._cinemaAngle = 0
+
+    /* Contact collision cooldown (ram damage) */
+    this._contactHitCd = 0
   }
 
   /* ════════════════════════════════════════════════
@@ -214,6 +217,8 @@ export class Game {
   }
 
   _update(dt) {
+    this._contactHitCd = Math.max(0, this._contactHitCd - dt)
+
     /* Helicopter */
     this._heli.update(dt, this._keys, this._mouseDelta, this._firing)
 
@@ -235,7 +240,7 @@ export class Game {
     this._projMgr.update(dt)
 
     /* Collision */
-    this._checkCollisions()
+    this._checkCollisions(dt)
 
     /* Wave completion */
     if (this._state === 'playing' && this._waves.isWaveComplete()) {
@@ -296,7 +301,7 @@ export class Game {
      Collision detection (BVH ray-sweep + sphere fallback)
   ════════════════════════════════════════════════ */
 
-  _checkCollisions() {
+  _checkCollisions(dt) {
     const drones         = this._waves.getDrones().filter(d => d.isAlive())
     const allyProj       = this._projMgr.allyProjectiles()
     const droneProj      = this._projMgr.droneProjectiles()
@@ -400,6 +405,48 @@ export class Game {
           drone.hit(9999)
           break
         }
+      }
+    }
+
+    /* ── helicopter contact collisions (mutual damage) ── */
+    if (this._heli.isAlive() && this._contactHitCd <= 0) {
+      let contact = false
+
+      // Helicopter vs warship
+      if (heliPos.distanceTo(warshipPos) < R_HELI + R_WARSHIP - 3) {
+        this._heli.hit(34)
+        this._convoy.hitWarship(20)
+        contact = true
+      }
+
+      // Helicopter vs cargo
+      if (!contact) {
+        for (let i = 0; i < 3; i++) {
+          if (!cargoPositions[i]) continue
+          if (heliPos.distanceTo(cargoPositions[i]) < R_HELI + R_CARGO - 2) {
+            this._heli.hit(30)
+            this._convoy.hitCargoShip(i, 18)
+            contact = true
+            break
+          }
+        }
+      }
+
+      // Helicopter vs drone
+      if (!contact) {
+        for (const drone of drones) {
+          if (heliPos.distanceTo(drone.getPosition()) < R_HELI + R_DRONE - 1) {
+            this._heli.hit(26)
+            drone.hit(55)
+            contact = true
+            break
+          }
+        }
+      }
+
+      if (contact) {
+        this._hud.flashHit()
+        this._contactHitCd = 0.33
       }
     }
   }

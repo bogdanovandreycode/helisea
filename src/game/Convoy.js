@@ -299,24 +299,81 @@ export class Convoy {
   hitWarship(dmg) {
     this.warshipHP = Math.max(0, this.warshipHP - dmg)
     this.audio.play('shipHit', 0.8)
-    this._flashShip(this.warshipRoot)
+    const p = this.getWarshipPosition()
+    p.y += 10
+    this._spawnImpactExplosion(p, 1.8)
   }
 
   hitCargoShip(i, dmg) {
     this.cargoHP[i] = Math.max(0, this.cargoHP[i] - dmg)
     this.audio.play('shipHit', 0.6)
-    this._flashShip(this.cargoRoots[i])
+    const p = this.getCargoShipPosition(i)
+    p.y += 8
+    this._spawnImpactExplosion(p, 1.5)
     if (this.cargoHP[i] <= 0) this._sinkCargo(i)
   }
 
-  _flashShip(root) {
-    if (!root) return
-    root.traverse(obj => {
-      if (obj.isMesh && obj.material?.emissive) {
-        obj.material.emissive.set(0xff2200)
-        setTimeout(() => { if (obj.material) obj.material.emissive.set(0x000000) }, 200)
+  _spawnImpactExplosion(position, intensity = 1) {
+    const particleCount = Math.floor(20 * intensity)
+    const geo = new THREE.SphereGeometry(0.45 * intensity, 8, 6)
+    const particles = []
+
+    for (let i = 0; i < particleCount; i++) {
+      const mat = new THREE.MeshBasicMaterial({
+        color: i % 3 === 0 ? 0xffee99 : 0xff7a2a,
+        transparent: true,
+        opacity: 0.95,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      })
+      const m = new THREE.Mesh(geo, mat)
+      m.position.copy(position)
+      m._vel = new THREE.Vector3(
+        (Math.random() - 0.5) * (34 * intensity),
+        Math.random() * (24 * intensity),
+        (Math.random() - 0.5) * (34 * intensity)
+      )
+      this.scene.add(m)
+      particles.push(m)
+    }
+
+    // Bright core flash for visibility at long distances.
+    const flash = new THREE.Mesh(
+      new THREE.SphereGeometry(1.2 * intensity, 12, 10),
+      new THREE.MeshBasicMaterial({
+        color: 0xffd27a,
+        transparent: true,
+        opacity: 0.9,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      })
+    )
+    flash.position.copy(position)
+    this.scene.add(flash)
+
+    let t = 0
+    const life = 0.95 + intensity * 0.25
+    const tick = () => {
+      t += 0.016
+      const k = Math.min(t / life, 1)
+
+      flash.scale.setScalar(1 + k * 4.5)
+      flash.material.opacity = (1 - k) * 0.8
+
+      for (const p of particles) {
+        p.position.addScaledVector(p._vel, 0.016)
+        p._vel.y -= 8.5 * 0.016
+        p.material.opacity = Math.pow(1 - k, 1.2)
       }
-    })
+
+      if (k < 1) {
+        requestAnimationFrame(tick)
+      } else {
+        this.scene.remove(flash)
+        for (const p of particles) this.scene.remove(p)
+      }
+    }
+    requestAnimationFrame(tick)
   }
 
   _sinkCargo(i) {

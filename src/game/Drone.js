@@ -195,12 +195,6 @@ export class Drone {
   hit(damage) {
     if (!this._alive) return
     this.hp -= damage
-    this.root.traverse(obj => {
-      if (obj.isMesh && obj.material?.emissive) {
-        obj.material.emissive.set(0xffffff)
-        setTimeout(() => { if (obj.material) obj.material.emissive?.set(0x000000) }, 80)
-      }
-    })
     if (this.hp <= 0) this._die()
   }
 
@@ -212,33 +206,63 @@ export class Drone {
   }
 
   _spawnExplosion() {
-    const geo = new THREE.SphereGeometry(0.3, 6, 4)
-    const mat = new THREE.MeshBasicMaterial({ color: 0xff6600 })
+    const geo = new THREE.SphereGeometry(0.8, 8, 6)
     const particles = []
 
-    for (let i = 0; i < 14; i++) {
-      const m = new THREE.Mesh(geo, mat.clone())
+    for (let i = 0; i < 34; i++) {
+      const m = new THREE.Mesh(
+        geo,
+        new THREE.MeshBasicMaterial({
+          color: i % 4 === 0 ? 0xffeeaa : 0xff5a1f,
+          transparent: true,
+          opacity: 0.95,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false,
+        })
+      )
       m.position.copy(this.position)
       m._vel = new THREE.Vector3(
-        (Math.random() - 0.5) * 22,
-        Math.random() * 16,
-        (Math.random() - 0.5) * 22
+        (Math.random() - 0.5) * 42,
+        Math.random() * 28,
+        (Math.random() - 0.5) * 42
       )
       this.scene.add(m)
       particles.push(m)
     }
 
+    const flash = new THREE.Mesh(
+      new THREE.SphereGeometry(2.4, 12, 10),
+      new THREE.MeshBasicMaterial({
+        color: 0xffc978,
+        transparent: true,
+        opacity: 0.95,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      })
+    )
+    flash.position.copy(this.position)
+    this.scene.add(flash)
+
     let t = 0
+    const life = 1.25
     const tick = () => {
       t += 0.016
+      const k = Math.min(t / life, 1)
+
+      flash.scale.setScalar(1 + k * 5)
+      flash.material.opacity = (1 - k) * 0.85
+
       for (const p of particles) {
         p.position.addScaledVector(p._vel, 0.016)
-        p._vel.y -= 9.8 * 0.016
-        p.material.opacity = 1 - t / 0.7
-        p.material.transparent = true
+        p._vel.y -= 8.2 * 0.016
+        p.material.opacity = Math.pow(1 - k, 1.15)
       }
-      if (t < 0.7) requestAnimationFrame(tick)
-      else particles.forEach(p => this.scene.remove(p))
+      if (k < 1) {
+        requestAnimationFrame(tick)
+      } else {
+        this.scene.remove(flash)
+        particles.forEach(p => this.scene.remove(p))
+      }
     }
     requestAnimationFrame(tick)
   }
