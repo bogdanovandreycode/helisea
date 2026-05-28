@@ -42,6 +42,7 @@ class AutoDefense {
     mountNode.add(gltfScene)
 
     this._firingNode = findNode(gltfScene, 'WEAPON')
+    this._launchElevation = THREE.MathUtils.degToRad(40)
   }
 
   update(dt, drones, listenerPos) {
@@ -94,11 +95,38 @@ class AutoDefense {
       }
 
       if (this.opts.type === 'pvo') {
+        // Launch from WEAPON point orientation with ~40 deg elevation,
+        // then homing logic will gradually pull it toward the target.
+        const launchDir = new THREE.Vector3(0, 1, 0)
+        if (this._firingNode) {
+          this._firingNode.getWorldQuaternion(_q)
+        } else {
+          this._weaponRoot.getWorldQuaternion(_q)
+        }
+        launchDir.applyQuaternion(_q).normalize()
+
+        // Enforce at least 40° upward launch while keeping heading.
+        const minY = Math.sin(this._launchElevation)
+        if (launchDir.y < minY) {
+          _tmp2.copy(launchDir)
+          _tmp2.y = 0
+          if (_tmp2.lengthSq() < 1e-6) {
+            _tmp2.set(0, 0, 1)
+          } else {
+            _tmp2.normalize()
+          }
+          _tmp2.multiplyScalar(Math.cos(this._launchElevation))
+          launchDir.set(_tmp2.x, minY, _tmp2.z).normalize()
+        }
+
         // Homing missile
         this.projMgr.spawnHoming(firePos, nearest, {
           speed:   this.opts.projSpeed,
           damage:  this.opts.damage,
           maxDist: this.opts.range + 100,
+          launchDirection: launchDir,
+          steerDelay: 0.45,
+          turnRate: 3.8,
         })
       } else {
         // Cannon tracer
@@ -208,7 +236,7 @@ export class Convoy {
       enableShadows(pvoScene)
       this._defenses.push(new AutoDefense(
         this.scene, pvoScene, pvoNode, this.projMgr, this.audio,
-        { type: 'pvo', range: 130, fireRate: 2.5, damage: 20, projSpeed: 130, soundKey: 'pvoFire' }
+        { type: 'pvo', range: 260, fireRate: 2.5, damage: 20, projSpeed: 130, soundKey: 'pvoFire' }
       ))
     }
   }
