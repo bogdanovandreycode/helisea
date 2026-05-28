@@ -249,6 +249,12 @@ export class Game {
     /* Collision */
     this._checkCollisions(dt)
 
+    /* Helicopter destroyed -> immediate game over */
+    if (!this._heli.isAlive()) {
+      this._gameOver()
+      return
+    }
+
     /* Wave completion */
     if (this._state === 'playing' && this._waves.isWaveComplete()) {
       this._onWaveComplete()
