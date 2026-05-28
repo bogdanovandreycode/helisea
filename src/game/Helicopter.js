@@ -13,6 +13,9 @@ const TILT_AMOUNT  = 0.22  // body tilt on move (rad)
 const ROTOR_SPEED  = 12    // rad/s
 const MIN_ALTITUDE = 4
 const MAX_ALTITUDE = 180
+const ENGINE_RATE_BASE = 1.0
+const ENGINE_RATE_MIN  = 0.86
+const ENGINE_RATE_MAX  = 1.28
 
 /* Weapon */
 const FIRE_RATE    = 0.28  // seconds between shots
@@ -62,6 +65,7 @@ export class Helicopter {
     /* smoothed tilt */
     this._tiltX = 0  // pitch tilt of body
     this._tiltZ = 0  // roll tilt of body
+    this._engineRate = ENGINE_RATE_BASE
 
     scene.add(this.root)
   }
@@ -173,6 +177,23 @@ export class Helicopter {
       Math.min(MAX_ALTITUDE, this.root.position.y + dy * CLIMB_SPEED * dt)
     )
 
+    const horizontalSpeed = dt > 0
+      ? Math.hypot(this.root.position.x - this.prevPosition.x, this.root.position.z - this.prevPosition.z) / dt
+      : 0
+    const verticalSpeed = dt > 0
+      ? (this.root.position.y - this.prevPosition.y) / dt
+      : 0
+    const moveFactor = Math.min(horizontalSpeed / MOVE_SPEED, 1)
+    const climbFactor = Math.max(0, verticalSpeed / CLIMB_SPEED)
+    const descendFactor = Math.max(0, -verticalSpeed / CLIMB_SPEED)
+    const targetEngineRate = THREE.MathUtils.clamp(
+      ENGINE_RATE_BASE + moveFactor * 0.1 + climbFactor * 0.16 - descendFactor * 0.12,
+      ENGINE_RATE_MIN,
+      ENGINE_RATE_MAX
+    )
+    this._engineRate += (targetEngineRate - this._engineRate) * Math.min(dt * 4, 1)
+    this.audio.setLoopPlaybackRate('helicopterNoise', this._engineRate)
+
     /* ── body tilt (visual) ── */
     const targetTiltX = -dz * TILT_AMOUNT  // pitch forward/back
     const targetTiltZ = -dx * TILT_AMOUNT  // roll left/right
@@ -253,6 +274,8 @@ export class Helicopter {
     this.supplies = SUPPLIES_MAX
     this.fuel = FUEL_MAX
     this.root.visible = true
+    this._engineRate = ENGINE_RATE_BASE
+    this.audio.setLoopPlaybackRate('helicopterNoise', this._engineRate)
 
     // Re-attach camera
     if (this._cameraNode) {
@@ -270,9 +293,12 @@ export class Helicopter {
     this._alive = true
     this._yaw   = 0
     this._pitch = 0
+    this._engineRate = ENGINE_RATE_BASE
     this.root.visible = true
     this.root.rotation.set(0, 0, 0)
     if (spawnPos) this.root.position.copy(spawnPos)
+    this.prevPosition.copy(this.root.position)
+    this.audio.setLoopPlaybackRate('helicopterNoise', this._engineRate)
 
     // Always (re-)attach camera to its node with zero local offset
     if (this._cameraNode) {

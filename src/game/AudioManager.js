@@ -13,6 +13,7 @@ export class AudioManager {
     this._ctx     = null
     this._loopBuffers = {}  // name -> AudioBuffer
     this._loopGains   = {}  // name -> GainNode
+    this._loopRates   = {}  // name -> playback rate
     this._loopSources = {}  // name -> AudioBufferSourceNode
     this._loopPending = {}  // name -> boolean
   }
@@ -65,11 +66,19 @@ export class AudioManager {
   /** Start a looping ambient sound (once). */
   startLoop(name, volume = 0.5) {
     const clampedVolume = Math.min(1, Math.max(0, volume))
+    const playbackRate = this._loopRates[name] ?? 1
 
     // Already playing via WebAudio.
     if (this._loopSources[name]) {
       const g = this._loopGains[name]
       if (g) g.gain.value = clampedVolume
+      this._loopSources[name].playbackRate.value = playbackRate
+      return
+    }
+
+    if (this._loops[name]) {
+      this._loops[name].volume = clampedVolume
+      this._loops[name].playbackRate = playbackRate
       return
     }
 
@@ -79,10 +88,10 @@ export class AudioManager {
     // Try seamless WebAudio path first.
     if (this._enabled && this._ctx) {
       this._loopPending[name] = true
-      this._startLoopWebAudio(name, clampedVolume)
+      this._startLoopWebAudio(name, clampedVolume, playbackRate)
         .catch(() => {
           // Fallback to HTMLAudio loop if WebAudio fails.
-          this._startLoopHtml(name, clampedVolume)
+          this._startLoopHtml(name, clampedVolume, playbackRate)
         })
         .finally(() => {
           this._loopPending[name] = false
@@ -91,21 +100,22 @@ export class AudioManager {
     }
 
     // Pre-gesture fallback (kept for compatibility with existing flow).
-    this._startLoopHtml(name, clampedVolume)
+    this._startLoopHtml(name, clampedVolume, playbackRate)
   }
 
-  _startLoopHtml(name, volume) {
+  _startLoopHtml(name, volume, playbackRate = 1) {
     if (this._loops[name]) return
     const url = this._urls[name]
     if (!url) return
     const a = new Audio(url)
     a.loop   = true
     a.volume = volume
+    a.playbackRate = playbackRate
     this._loops[name] = a
     if (this._enabled) a.play().catch(() => {})
   }
 
-  async _startLoopWebAudio(name, volume) {
+  async _startLoopWebAudio(name, volume, playbackRate = 1) {
     if (!this._ctx) throw new Error('AudioContext is unavailable')
     const url = this._urls[name]
     if (!url) throw new Error(`Unknown audio loop: ${name}`)
@@ -121,6 +131,7 @@ export class AudioManager {
     const source = this._ctx.createBufferSource()
     source.buffer = buffer
     source.loop = true
+    source.playbackRate.value = playbackRate
 
     const gain = this._ctx.createGain()
     gain.gain.value = volume
@@ -151,6 +162,18 @@ export class AudioManager {
 
     const a = this._loops[name]
     if (a) a.volume = Math.min(1, Math.max(0, volume))
+  }
+
+  /** Adjust playback speed of a running loop. */
+  setLoopPlaybackRate(name, rate) {
+    const clampedRate = Math.min(2, Math.max(0.25, rate))
+    this._loopRates[name] = clampedRate
+
+    const src = this._loopSources[name]
+    if (src) src.playbackRate.value = clampedRate
+
+    const a = this._loops[name]
+    if (a) a.playbackRate = clampedRate
   }
 
   /** Stop a looping sound. */
