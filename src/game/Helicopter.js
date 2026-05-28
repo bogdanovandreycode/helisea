@@ -161,14 +161,21 @@ export class Helicopter {
     const right = new THREE.Vector3( Math.cos(this._yaw), 0, -Math.sin(this._yaw))
 
     let dx = 0, dz = 0, dy = 0
+    let moveForward = 0
+    let moveStrafe = 0
     if (this.fuel > 0) {
-      if (keys.has('KeyW')) { dx += fwd.x;   dz += fwd.z;   }
-      if (keys.has('KeyS')) { dx -= fwd.x;   dz -= fwd.z;   }
-      if (keys.has('KeyD')) { dx -= right.x; dz -= right.z; }
-      if (keys.has('KeyA')) { dx += right.x; dz += right.z; }
+      if (keys.has('KeyW')) moveForward += 1
+      if (keys.has('KeyS')) moveForward -= 1
+      if (keys.has('KeyD')) moveStrafe += 1
+      if (keys.has('KeyA')) moveStrafe -= 1
       if (keys.has('Space'))      dy =  1
       if (keys.has('ShiftLeft') || keys.has('ShiftRight')) dy = -1
     }
+
+    dx += fwd.x * moveForward
+    dz += fwd.z * moveForward
+    dx -= right.x * moveStrafe
+    dz -= right.z * moveStrafe
 
     this.root.position.x += dx * MOVE_SPEED * dt
     this.root.position.z += dz * MOVE_SPEED * dt
@@ -195,8 +202,8 @@ export class Helicopter {
     this.audio.setLoopPlaybackRate('helicopterNoise', this._engineRate)
 
     /* ── body tilt (visual) ── */
-    const targetTiltX = -dz * TILT_AMOUNT  // pitch forward/back
-    const targetTiltZ = -dx * TILT_AMOUNT  // roll left/right
+    const targetTiltX = moveForward * TILT_AMOUNT   // pitch forward/back in local heli space
+    const targetTiltZ = -moveStrafe * TILT_AMOUNT   // roll left/right in local heli space
     const lerpRate = 5 * dt
     this._tiltX += (targetTiltX - this._tiltX) * lerpRate
     this._tiltZ += (targetTiltZ - this._tiltZ) * lerpRate
