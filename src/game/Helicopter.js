@@ -52,6 +52,7 @@ export class Helicopter {
 
     /* 3-D hierarchy */
     this.root        = new THREE.Object3D()  // yaw pivot
+    this.prevPosition = new THREE.Vector3()
     this._bodyScene  = null
     this._vint       = null
     this._cameraNode = null
@@ -131,6 +132,8 @@ export class Helicopter {
       if (this._respawnTimer <= 0) this._respawn()
       return
     }
+
+    this.prevPosition.copy(this.root.position)
 
     // Fuel drains during flight; both resources refill near spawn.
     if (inRefillZone) {

@@ -134,6 +134,7 @@ export class Projectile {
     this._travelDist = 0
 
     this.position  = position.clone()
+    this.prevPosition = position.clone()
     this.direction = direction.clone().normalize()
 
     this._mesh = null
@@ -177,6 +178,7 @@ export class Projectile {
     if (!this._alive) return
     const dist = this.speed * dt
     this._travelDist += dist
+    this.prevPosition.copy(this.position)
     this.position.addScaledVector(this.direction, dist)
 
     if (this._mesh) {
@@ -215,6 +217,7 @@ export class HomingMissile {
   constructor(scene, position, target, smokePool, opts = {}) {
     this.scene    = scene
     this.position = position.clone()
+    this.prevPosition = position.clone()
     this.direction = opts.launchDirection
       ? opts.launchDirection.clone().normalize()
       : new THREE.Vector3(0, 1, 0)
@@ -266,6 +269,8 @@ export class HomingMissile {
     this._time += dt
     const dist = this.speed * dt
     this._travelDist += dist
+
+    this.prevPosition.copy(this.position)
 
     // Steer toward live target
     if (this._time >= this._steerDelay && this.target && this.target.isAlive()) {

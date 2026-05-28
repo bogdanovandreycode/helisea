@@ -58,6 +58,8 @@ export class Drone {
     /* 3-D objects */
     this.root = new THREE.Object3D()
     this.root.position.copy(this.position)
+    this.prevPosition = this.position.clone()
+    this._collisionMeshes = []
     this._vint    = null
     this._vintSpd = 6 + Math.random() * 4
     scene.add(this.root)
@@ -68,7 +70,7 @@ export class Drone {
     if (!_bodyGltf || !_vintGltf) return
 
     const body = _bodyGltf.scene.clone(true)
-    hideCollision(body)
+    this._collisionMeshes = hideCollision(body)
     enableShadows(body)
     // Model forward axis correction (it was flying sideways).
     body.rotation.y = DRONE_BODY_YAW_OFFSET
@@ -95,6 +97,7 @@ export class Drone {
   update(dt, heliPos) {
     if (!this._alive) return
 
+    this.prevPosition.copy(this.position)
     this._updateMovement(dt)
     // Drones are kamikaze-only in this mode: no ranged attacks.
     this._spinRotor(dt)

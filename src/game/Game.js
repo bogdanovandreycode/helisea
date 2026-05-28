@@ -17,6 +17,8 @@ const R_HELI     = 8
 const _ray       = new THREE.Raycaster()
 const _rayOrigin = new THREE.Vector3()
 const _rayDir    = new THREE.Vector3()
+const _segVec    = new THREE.Vector3()
+const _segDir    = new THREE.Vector3()
 
 /**
  * Cast a swept ray for a projectile step and check against BVH collision meshes.
@@ -35,6 +37,18 @@ function _rayHitMeshes(fromPos, dir, stepDist, meshes) {
     if (hits.length > 0) return true
   }
   return false
+}
+
+/**
+ * BVH segment test from `fromPos` to `toPos`.
+ */
+function _segmentHitMeshes(fromPos, toPos, meshes) {
+  if (!meshes || meshes.length === 0) return false
+  _segVec.subVectors(toPos, fromPos)
+  const dist = _segVec.length()
+  if (dist <= 1e-5) return false
+  _segDir.copy(_segVec).multiplyScalar(1 / dist)
+  return _rayHitMeshes(fromPos, _segDir, dist, meshes)
 }
 
 
@@ -325,19 +339,24 @@ export class Game {
     const warshipPos     = this._convoy.getWarshipPosition()
     const cargoPositions = [0, 1, 2].map(i => this._convoy.getCargoShipPosition(i))
     const heliPos        = this._heli.getPosition()
+    const heliPrev       = this._heli.prevPosition || heliPos
 
     const warshipColl = this._convoy.warshipCollision
     const cargoColl   = this._convoy.cargoCollision
-    const heliColl    = this._heli._collisionMeshes
+    const heliColl    = this._heli._collisionMeshes || []
 
-    /* ── ally projectiles → drones (sphere) ── */
+    /* ── ally projectiles → drones (BVH first, sphere fallback) ── */
     for (const proj of allyProj) {
-      const prevPos = proj.position.clone().addScaledVector(proj.direction, -proj.speed * 0.016)
-      const stepDist = proj.speed * 0.016
+      const prevPos = proj.prevPosition || proj.position.clone()
       for (const drone of drones) {
         const dPos = drone.getPosition()
+        const dColl = drone._collisionMeshes || []
         const bonus = proj.type === 'cannon' ? 2.2 : 1.0
-        if (proj.position.distanceTo(dPos) < R_DRONE + bonus) {
+        const droneHit = dColl.length > 0
+          ? _segmentHitMeshes(prevPos, proj.position, dColl)
+          : proj.position.distanceTo(dPos) < R_DRONE + bonus
+
+        if (droneHit) {
           const killed = drone.hp - proj.damage <= 0
           drone.hit(proj.damage)
           proj.destroy()
@@ -350,10 +369,16 @@ export class Game {
       }
     }
 
-    /* ── homing (pvo) → drones (sphere) ── */
+    /* ── homing (pvo) → drones (BVH first, sphere fallback) ── */
     for (const proj of homingProj) {
+      const prevPos = proj.prevPosition || proj.position.clone()
       for (const drone of drones) {
-        if (proj.position.distanceTo(drone.getPosition()) < R_DRONE + 3.2) {
+        const dColl = drone._collisionMeshes || []
+        const droneHit = dColl.length > 0
+          ? _segmentHitMeshes(prevPos, proj.position, dColl)
+          : proj.position.distanceTo(drone.getPosition()) < R_DRONE + 3.2
+
+        if (droneHit) {
           drone.hit(proj.damage)
           proj.destroy()
           this._score += 50
@@ -362,27 +387,27 @@ export class Game {
       }
     }
 
-    /* ── drone projectiles → ships (BVH) + helicopter (sphere) ── */
+    /* ── drone projectiles → ships + helicopter (BVH first, sphere fallback) ── */
     for (const proj of droneProj) {
-      const prevPos  = proj.position.clone().addScaledVector(proj.direction, -proj.speed * 0.016)
-      const stepDist = proj.speed * 0.016
+      const prevPos = proj.prevPosition || proj.position.clone()
 
-      // Warship – BVH first, sphere fallback
+      // Warship
       const warshipHit = warshipColl.length > 0
-        ? _rayHitMeshes(prevPos, proj.direction, stepDist, warshipColl)
+        ? _segmentHitMeshes(prevPos, proj.position, warshipColl)
         : proj.position.distanceTo(warshipPos) < R_WARSHIP
       if (warshipHit) {
         this._convoy.hitWarship(proj.damage)
         proj.destroy()
         continue
       }
+
       // Cargo ships
       let hit = false
       for (let i = 0; i < 3; i++) {
         if (!cargoPositions[i]) continue
         const cColl = cargoColl[i]
         const cargoHit = cColl && cColl.length > 0
-          ? _rayHitMeshes(prevPos, proj.direction, stepDist, cColl)
+          ? _segmentHitMeshes(prevPos, proj.position, cColl)
           : proj.position.distanceTo(cargoPositions[i]) < R_CARGO
         if (cargoHit) {
           this._convoy.hitCargoShip(i, proj.damage)
@@ -392,10 +417,11 @@ export class Game {
         }
       }
       if (hit) continue
-      // Helicopter – BVH first, sphere fallback
+
+      // Helicopter
       if (this._heli.isAlive()) {
         const heliHit = heliColl.length > 0
-          ? _rayHitMeshes(prevPos, proj.direction, stepDist, heliColl)
+          ? _segmentHitMeshes(prevPos, proj.position, heliColl)
           : proj.position.distanceTo(heliPos) < R_HELI
         if (heliHit) {
           this._heli.hit(proj.damage)
@@ -405,17 +431,29 @@ export class Game {
       }
     }
 
-    /* ── drone kamikaze (dive phase) → ships ── */
+    /* ── drone kamikaze (dive phase) → ships (BVH first) ── */
     for (const drone of drones) {
-      if (drone._phase !== 'dive') continue   // only diving drones ram ships
+      if (drone._phase !== 'dive') continue
       const dp = drone.getPosition()
-      if (dp.distanceTo(warshipPos) < R_WARSHIP + 5) {
+      const dPrev = drone.prevPosition || dp
+
+      const warshipRam = warshipColl.length > 0
+        ? _segmentHitMeshes(dPrev, dp, warshipColl)
+        : dp.distanceTo(warshipPos) < R_WARSHIP + 5
+
+      if (warshipRam) {
         this._convoy.hitWarship(45)
         drone.hit(9999)
         continue
       }
+
       for (let i = 0; i < 3; i++) {
-        if (cargoPositions[i] && dp.distanceTo(cargoPositions[i]) < R_CARGO + 5) {
+        if (!cargoPositions[i]) continue
+        const cColl = cargoColl[i]
+        const cargoRam = cColl && cColl.length > 0
+          ? _segmentHitMeshes(dPrev, dp, cColl)
+          : dp.distanceTo(cargoPositions[i]) < R_CARGO + 5
+        if (cargoRam) {
           this._convoy.hitCargoShip(i, 35)
           drone.hit(9999)
           break
@@ -423,12 +461,15 @@ export class Game {
       }
     }
 
-    /* ── helicopter contact collisions (mutual damage) ── */
+    /* ── helicopter contact collisions (mutual damage, BVH first) ── */
     if (this._heli.isAlive() && this._contactHitCd <= 0) {
       let contact = false
 
       // Helicopter vs warship
-      if (heliPos.distanceTo(warshipPos) < R_HELI + R_WARSHIP - 3) {
+      const warshipContact = warshipColl.length > 0
+        ? _segmentHitMeshes(heliPrev, heliPos, warshipColl)
+        : heliPos.distanceTo(warshipPos) < R_HELI + R_WARSHIP - 3
+      if (warshipContact) {
         this._heli.hit(34)
         this._convoy.hitWarship(20)
         contact = true
@@ -438,7 +479,11 @@ export class Game {
       if (!contact) {
         for (let i = 0; i < 3; i++) {
           if (!cargoPositions[i]) continue
-          if (heliPos.distanceTo(cargoPositions[i]) < R_HELI + R_CARGO - 2) {
+          const cColl = cargoColl[i]
+          const cargoContact = cColl && cColl.length > 0
+            ? _segmentHitMeshes(heliPrev, heliPos, cColl)
+            : heliPos.distanceTo(cargoPositions[i]) < R_HELI + R_CARGO - 2
+          if (cargoContact) {
             this._heli.hit(30)
             this._convoy.hitCargoShip(i, 18)
             contact = true
@@ -450,7 +495,19 @@ export class Game {
       // Helicopter vs drone
       if (!contact) {
         for (const drone of drones) {
-          if (heliPos.distanceTo(drone.getPosition()) < R_HELI + R_DRONE - 1) {
+          const dPos = drone.getPosition()
+          const dPrev = drone.prevPosition || dPos
+          const dColl = drone._collisionMeshes || []
+
+          const heliIntoDrone = dColl.length > 0
+            ? _segmentHitMeshes(heliPrev, heliPos, dColl)
+            : heliPos.distanceTo(dPos) < R_HELI + R_DRONE - 1
+
+          const droneIntoHeli = !heliIntoDrone && heliColl.length > 0
+            ? _segmentHitMeshes(dPrev, dPos, heliColl)
+            : false
+
+          if (heliIntoDrone || droneIntoHeli) {
             this._heli.hit(26)
             drone.hit(55)
             contact = true
