@@ -137,8 +137,8 @@ export class Helicopter {
     let dx = 0, dz = 0, dy = 0
     if (keys.has('KeyW')) { dx += fwd.x;   dz += fwd.z;   }
     if (keys.has('KeyS')) { dx -= fwd.x;   dz -= fwd.z;   }
-    if (keys.has('KeyD')) { dx += right.x; dz += right.z; }
-    if (keys.has('KeyA')) { dx -= right.x; dz -= right.z; }
+    if (keys.has('KeyD')) { dx -= right.x; dz -= right.z; }
+    if (keys.has('KeyA')) { dx += right.x; dz += right.z; }
     if (keys.has('Space'))      dy =  1
     if (keys.has('ShiftLeft') || keys.has('ShiftRight')) dy = -1
 
@@ -151,7 +151,7 @@ export class Helicopter {
 
     /* ── body tilt (visual) ── */
     const targetTiltX =  dz * TILT_AMOUNT  // pitch forward/back
-    const targetTiltZ =  dx * TILT_AMOUNT  // roll left/right
+    const targetTiltZ = -dx * TILT_AMOUNT  // roll left/right
     const lerpRate = 5 * dt
     this._tiltX += (targetTiltX - this._tiltX) * lerpRate
     this._tiltZ += (targetTiltZ - this._tiltZ) * lerpRate

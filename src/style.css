@@ -219,24 +219,48 @@ canvas { display: block; width: 100%; height: 100%; }
 .eagle-marker {
   position: absolute;
   transform: translate(-50%, -50%);
-  padding: 2px 6px;
-  font: 600 11px/1.4 monospace;
-  letter-spacing: .06em;
-  border-radius: 2px;
-  white-space: nowrap;
+  width: 26px;
+  height: 26px;
   pointer-events: none;
 }
-.eagle-drone {
-  color: #ff4444;
-  border: 1px solid #ff4444;
-  background: rgba(255,0,0,.12);
-  text-shadow: 0 0 6px #ff4444;
+
+.eagle-marker .corner {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border-color: currentColor;
+  border-style: solid;
+  border-width: 0;
+  filter: drop-shadow(0 0 4px currentColor);
 }
-.eagle-ship {
+
+.eagle-marker .corner.tl { top: 0; left: 0; border-top-width: 2px; border-left-width: 2px; }
+.eagle-marker .corner.tr { top: 0; right: 0; border-top-width: 2px; border-right-width: 2px; }
+.eagle-marker .corner.bl { bottom: 0; left: 0; border-bottom-width: 2px; border-left-width: 2px; }
+.eagle-marker .corner.br { bottom: 0; right: 0; border-bottom-width: 2px; border-right-width: 2px; }
+
+.eagle-label {
+  position: absolute;
+  left: 50%;
+  top: 30px;
+  transform: translateX(-50%);
+  font: 700 10px/1 monospace;
+  letter-spacing: .08em;
+  white-space: nowrap;
+  color: currentColor;
+  text-shadow: 0 0 6px currentColor;
+}
+
+.eagle-drone {
+  color: #ff4a4a;
+}
+
+.eagle-friendly {
   color: #44aaff;
-  border: 1px solid #44aaff;
-  background: rgba(0,100,255,.12);
-  text-shadow: 0 0 6px #44aaff;
+}
+
+.eagle-missile {
+  color: #ffd46b;
 }
 
 /* respawn overlay */

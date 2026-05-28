@@ -267,24 +267,28 @@ export class Game {
 
     /* Eagle-vision markers */
     const eagleTargets = []
-    let di = 1
     for (const d of this._waves.getDrones().filter(d => d.isAlive())) {
-      eagleTargets.push({ pos: d.getPosition().clone().add(new THREE.Vector3(0, 5, 0)), label: `DRONE ${di++}`, type: 'drone' })
+      eagleTargets.push({ pos: d.getPosition().clone().add(new THREE.Vector3(0, 5, 0)), label: 'DRN', type: 'drone' })
     }
     if (this._convoy.warshipRoot) {
       const wp = new THREE.Vector3()
       this._convoy.warshipRoot.getWorldPosition(wp)
       wp.y += 18
-      eagleTargets.push({ pos: wp, label: 'WARSHIP', type: 'ship' })
+      eagleTargets.push({ pos: wp, label: 'FRD', type: 'friendly' })
     }
     for (let i = 0; i < this._convoy.cargoRoots.length; i++) {
       if (this._convoy.cargoHP[i] > 0 && this._convoy.cargoRoots[i]) {
         const cp = new THREE.Vector3()
         this._convoy.cargoRoots[i].getWorldPosition(cp)
         cp.y += 12
-        eagleTargets.push({ pos: cp, label: `TANKER ${i+1}`, type: 'ship' })
+        eagleTargets.push({ pos: cp, label: 'FRD', type: 'friendly' })
       }
     }
+
+    for (const m of this._projMgr.homingProjectiles()) {
+      eagleTargets.push({ pos: m.getPosition().clone(), label: 'MSL', type: 'missile' })
+    }
+
     this._hud.updateEagleVision(this._camera, eagleTargets)
   }
 
@@ -312,7 +316,8 @@ export class Game {
       const stepDist = proj.speed * 0.016
       for (const drone of drones) {
         const dPos = drone.getPosition()
-        if (proj.position.distanceTo(dPos) < R_DRONE + 1) {
+        const bonus = proj.type === 'cannon' ? 2.2 : 1.0
+        if (proj.position.distanceTo(dPos) < R_DRONE + bonus) {
           const killed = drone.hp - proj.damage <= 0
           drone.hit(proj.damage)
           proj.destroy()
@@ -328,7 +333,7 @@ export class Game {
     /* ── homing (pvo) → drones (sphere) ── */
     for (const proj of homingProj) {
       for (const drone of drones) {
-        if (proj.position.distanceTo(drone.getPosition()) < R_DRONE + 2) {
+        if (proj.position.distanceTo(drone.getPosition()) < R_DRONE + 3.2) {
           drone.hit(proj.damage)
           proj.destroy()
           this._score += 50

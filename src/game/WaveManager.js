@@ -105,24 +105,37 @@ export class WaveManager {
     // Purge dead drones (mesh already removed in _die())
     this._drones = this._drones.filter(d => d.isAlive())
 
-    // Drone ambient noise – volume based on count × nearest-drone distance factor
-    let minDist = Infinity
+    // Drone ambient noise – only two nearest drones contribute to volume.
+    const dists = []
     let activeCnt = 0
     for (const d of this._drones) {
       if (d.isAlive()) {
         activeCnt++
         if (listenerPos) {
           const dist = d.getPosition().distanceTo(listenerPos)
-          if (dist < minDist) minDist = dist
+          dists.push(dist)
         }
       }
     }
-    const distFactor = (listenerPos && minDist < Infinity) ? Math.max(0, 1 - minDist / 400) : 1
-    const targetVol = Math.min(activeCnt * 0.04, 0.3) * distFactor
+
+    let targetVol = 0
+    if (listenerPos && dists.length > 0) {
+      dists.sort((a, b) => a - b)
+      const top2 = dists.slice(0, 2)
+      let sum = 0
+      for (const dist of top2) sum += Math.max(0, 1 - dist / 360)
+      targetVol = Math.min(sum * 0.18, 0.32)
+    } else {
+      targetVol = Math.min(activeCnt, 2) * 0.08
+    }
+
     this._droneVolume += (targetVol - this._droneVolume) * Math.min(dt * 2, 1)
     this.audio.setLoopVolume('droneNoise', this._droneVolume)
+
     if (activeCnt > 0 && this._droneVolume > 0.01) {
       this.audio.startLoop('droneNoise', this._droneVolume)
+    } else if (activeCnt === 0) {
+      this.audio.stopLoop('droneNoise')
     }
   }
 

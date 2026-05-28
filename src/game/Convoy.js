@@ -63,8 +63,18 @@ class AutoDefense {
 
     if (!nearest) { this._rotating = false; return }
 
+    // Predict target position a bit ahead to reduce misses.
+    const targetPos = nearest.getPosition()
+    const aimPos = targetPos.clone()
+    const targetVel = nearest._velocity
+    if (targetVel && targetVel.lengthSq && targetVel.lengthSq() > 0.001) {
+      const leadTime = nearestDist / Math.max(this.opts.projSpeed, 1)
+      const leadFactor = this.opts.type === 'cannon' ? 0.95 : 0.45
+      aimPos.addScaledVector(targetVel, leadTime * leadFactor)
+    }
+
     // Rotate toward target
-    _tmp.copy(nearest.getPosition()).sub(wPos).normalize()
+    _tmp.copy(aimPos).sub(wPos).normalize()
     const targetAngle = Math.atan2(_tmp.x, _tmp.z)
     const curAngle    = this._weaponRoot.rotation.y
     const diff        = targetAngle - curAngle
@@ -125,13 +135,15 @@ class AutoDefense {
           damage:  this.opts.damage,
           maxDist: this.opts.range + 100,
           launchDirection: launchDir,
-          steerDelay: 0.45,
-          turnRate: 3.8,
+          steerDelay: 0.2,
+          turnRate: 5.2,
+          smokeDuration: 2.2,
+          smokeBurst: 2,
         })
       } else {
         // Cannon tracer
         const dir = new THREE.Vector3()
-          .subVectors(nearest.getPosition(), firePos)
+          .subVectors(aimPos, firePos)
           .normalize()
         this.projMgr.spawn(firePos, dir, {
           type:    'cannon',
@@ -236,7 +248,7 @@ export class Convoy {
       enableShadows(pvoScene)
       this._defenses.push(new AutoDefense(
         this.scene, pvoScene, pvoNode, this.projMgr, this.audio,
-        { type: 'pvo', range: 260, fireRate: 2.5, damage: 20, projSpeed: 130, soundKey: 'pvoFire' }
+        { type: 'pvo', range: 360, fireRate: 2.5, damage: 20, projSpeed: 145, soundKey: 'pvoFire' }
       ))
     }
   }
@@ -340,15 +352,10 @@ export class Convoy {
     // Auto-defenses
     for (const def of this._defenses) def.update(dt, drones, listenerPos)
 
-    // Ship ambient noise – distance-based volume
-    if (!this._shipNoisePlaying) {
-      this.audio.startLoop('shipNoise', 0)
-      this._shipNoisePlaying = true
-    }
-    if (listenerPos) {
-      const dist = this.getWarshipPosition().distanceTo(listenerPos)
-      const vol = 0.35 * Math.max(0, 1 - dist / 600)
-      this.audio.setLoopVolume('shipNoise', vol)
+    // Ship ambient noise disabled by request.
+    if (this._shipNoisePlaying) {
+      this.audio.stopLoop('shipNoise')
+      this._shipNoisePlaying = false
     }
 
     // Gentle ship rocking
@@ -369,6 +376,8 @@ export class Convoy {
   reset() {
     this.warshipHP = this.warshipMaxHP
     this.cargoHP   = this.cargoHP.map(() => this.cargoMaxHP)
+    this.audio.stopLoop('shipNoise')
+    this._shipNoisePlaying = false
     for (const r of this.cargoRoots) {
       if (r) { r.position.y = 0; r.rotation.z = 0 }
     }

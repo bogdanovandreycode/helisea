@@ -8,10 +8,10 @@ const TRACER_LEN       = 18   // units
 const _UP             = new THREE.Vector3(0, 1, 0)
 
 /* Homing visual FX tuning */
-const SMOKE_POOL_SIZE      = 160
-const SMOKE_EMIT_INTERVAL  = 0.045
-const SMOKE_MIN_LIFE       = 0.75
-const SMOKE_MAX_LIFE       = 1.25
+const SMOKE_POOL_SIZE      = 220
+const SMOKE_EMIT_INTERVAL  = 0.032
+const SMOKE_MIN_LIFE       = 1.1
+const SMOKE_MAX_LIFE       = 1.9
 
 const _tmpDir      = new THREE.Vector3()
 const _tmpPos      = new THREE.Vector3()
@@ -62,7 +62,7 @@ class SmokePool {
     p.active = true
     p.age = 0
     p.life = SMOKE_MIN_LIFE + Math.random() * (SMOKE_MAX_LIFE - SMOKE_MIN_LIFE)
-    p.baseScale = 0.14 + Math.random() * 0.12
+    p.baseScale = 0.18 + Math.random() * 0.16
 
     p.mesh.visible = true
     p.mesh.position.copy(position)
@@ -71,13 +71,13 @@ class SmokePool {
     p.mesh.position.z += (Math.random() - 0.5) * 0.12
     p.mesh.scale.setScalar(p.baseScale)
 
-    _tmpVel.copy(backDir).multiplyScalar(2.4 + Math.random() * 1.6)
+    _tmpVel.copy(backDir).multiplyScalar(1.8 + Math.random() * 1.3)
     _tmpVel.x += (Math.random() - 0.5) * 0.9
     _tmpVel.y += 0.7 + Math.random() * 0.6
     _tmpVel.z += (Math.random() - 0.5) * 0.9
     p.vel.copy(_tmpVel)
 
-    p.mesh.material.opacity = 0.42
+    p.mesh.material.opacity = 0.52
   }
 
   update(dt) {
@@ -210,7 +210,7 @@ export class HomingMissile {
    * @param {THREE.Scene}   scene
    * @param {THREE.Vector3} position   – fire position
    * @param {Drone}         target     – initial drone target
-   * @param {object} opts  { speed, damage, maxDist, launchDirection, steerDelay, turnRate }
+  * @param {object} opts  { speed, damage, maxDist, launchDirection, steerDelay, turnRate, smokeDuration, smokeBurst }
    */
   constructor(scene, position, target, smokePool, opts = {}) {
     this.scene    = scene
@@ -225,6 +225,8 @@ export class HomingMissile {
     this.maxDist  = opts.maxDist || 600
     this._steerDelay = opts.steerDelay ?? 0.45
     this._turnRate   = opts.turnRate ?? 3.5
+    this._smokeDuration = opts.smokeDuration ?? 2.0
+    this._smokeBurst    = opts.smokeBurst ?? 1
     this.type     = 'homing'
     this._alive   = true
     this._travelDist = 0
@@ -290,13 +292,15 @@ export class HomingMissile {
     }
 
     // Emit pooled white smoke from the engine side (rear of missile)
-    if (this._smokePool) {
+    if (this._smokePool && this._time <= this._smokeDuration) {
       this._smokeCd -= dt
       while (this._smokeCd <= 0) {
         this._smokeCd += SMOKE_EMIT_INTERVAL
-        _tmpPos.copy(this.position).addScaledVector(this.direction, -1.0)
-        _tmpDir.copy(this.direction).multiplyScalar(-1)
-        this._smokePool.emit(_tmpPos, _tmpDir)
+        for (let i = 0; i < this._smokeBurst; i++) {
+          _tmpPos.copy(this.position).addScaledVector(this.direction, -1.0)
+          _tmpDir.copy(this.direction).multiplyScalar(-1)
+          this._smokePool.emit(_tmpPos, _tmpDir)
+        }
       }
     }
 

@@ -198,7 +198,7 @@ export class HUD {
   /**
    * Eagle-vision: render world-space targets as screen-space markers.
    * @param {THREE.Camera} camera
-   * @param {Array<{pos: THREE.Vector3, label: string, type: 'drone'|'ship'}>} targets
+    * @param {Array<{pos: THREE.Vector3, label: string, type: string}>} targets
    */
   updateEagleVision(camera, targets) {
     const container = this._el['eagle-vision']
@@ -216,7 +216,24 @@ export class HUD {
       el.className = `eagle-marker eagle-${t.type}`
       el.style.left = x + 'px'
       el.style.top  = y + 'px'
-      el.textContent = t.label
+
+      const c1 = document.createElement('span')
+      c1.className = 'corner tl'
+      const c2 = document.createElement('span')
+      c2.className = 'corner tr'
+      const c3 = document.createElement('span')
+      c3.className = 'corner bl'
+      const c4 = document.createElement('span')
+      c4.className = 'corner br'
+      const label = document.createElement('span')
+      label.className = 'eagle-label'
+      label.textContent = t.label
+
+      el.appendChild(c1)
+      el.appendChild(c2)
+      el.appendChild(c3)
+      el.appendChild(c4)
+      el.appendChild(label)
       container.appendChild(el)
     }
   }
