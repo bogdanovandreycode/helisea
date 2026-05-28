@@ -80,17 +80,13 @@ export class Helicopter {
       this._vint = vint
     }
 
-    /* camera – attach to CAMERA node */
+    /* camera – find CAMERA node; will be attached in reset() */
     const camNode = findNode(this._bodyScene, 'CAMERA')
     if (camNode) {
       this._cameraNode = camNode
-      camNode.add(this.camera)
-      this.camera.position.set(0, 0, 0)
-      this.camera.rotation.set(0, 0, 0)
     } else {
-      // Fallback: place camera above/in front of root
-      this.root.add(this.camera)
-      this.camera.position.set(0, 2, 1)
+      // Fallback: use root as camera parent
+      this._cameraNode = this.root
     }
 
     /* weapon mounts */
@@ -252,8 +248,8 @@ export class Helicopter {
     this.root.rotation.set(0, 0, 0)
     if (spawnPos) this.root.position.copy(spawnPos)
 
-    // Re-attach camera if it was detached
-    if (this._cameraNode && this.camera.parent !== this._cameraNode) {
+    // Always (re-)attach camera to its node with zero local offset
+    if (this._cameraNode) {
       if (this.camera.parent) this.camera.parent.remove(this.camera)
       this._cameraNode.add(this.camera)
       this.camera.position.set(0, 0, 0)

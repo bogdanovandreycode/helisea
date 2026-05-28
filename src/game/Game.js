@@ -192,11 +192,13 @@ export class Game {
     /* Helicopter */
     this._heli.update(dt, this._keys, this._mouseDelta, this._firing)
 
+    const listenerPos = this._heli.getPosition()
+
     /* Convoy + defenses */
-    this._convoy.update(dt, this._waves.getDrones())
+    this._convoy.update(dt, this._waves.getDrones(), listenerPos)
 
     /* Waves / drones */
-    this._waves.update(dt)
+    this._waves.update(dt, listenerPos)
 
     /* Projectiles */
     this._projMgr.update(dt)

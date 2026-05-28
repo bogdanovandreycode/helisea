@@ -33,6 +33,21 @@ export class AudioManager {
     a.play().catch(() => {})
   }
 
+  /**
+   * Play a positional one-shot sound. Volume fades to zero at maxDist.
+   * @param {string} name
+   * @param {THREE.Vector3} sourcePos
+   * @param {THREE.Vector3} listenerPos
+   * @param {number} maxDist
+   * @param {number} baseVol
+   */
+  play3D(name, sourcePos, listenerPos, maxDist = 300, baseVol = 1.0) {
+    if (!this._enabled) return
+    const dist = sourcePos.distanceTo(listenerPos)
+    const vol = baseVol * Math.max(0, 1 - dist / maxDist)
+    if (vol > 0.005) this.play(name, vol)
+  }
+
   /** Start a looping ambient sound (once). */
   startLoop(name, volume = 0.5) {
     if (this._loops[name]) return

@@ -47,7 +47,7 @@ class AutoDefense {
     this._firingNode = findNode(gltfScene, 'WEAPON')
   }
 
-  update(dt, drones) {
+  update(dt, drones, listenerPos) {
     if (!drones.length) return
 
     // Find nearest drone in range
@@ -78,7 +78,11 @@ class AutoDefense {
       this._weaponRoot.rotation.y += delta
       if (!this._rotating) {
         this._rotating = true
-        this.audio.play('weaponRotation', 0.3)
+        if (listenerPos) {
+          this.audio.play3D('weaponRotation', wPos, listenerPos, 350, 0.5)
+        } else {
+          this.audio.play('weaponRotation', 0.3)
+        }
       }
     } else {
       this._rotating = false
@@ -108,7 +112,11 @@ class AutoDefense {
         maxDist: this.opts.range + 50,
       })
 
-      this.audio.play(this.opts.soundKey, 0.6)
+      if (listenerPos) {
+        this.audio.play3D(this.opts.soundKey, firePos, listenerPos, 400, 1.0)
+      } else {
+        this.audio.play(this.opts.soundKey, 0.6)
+      }
     }
   }
 }
@@ -295,14 +303,19 @@ export class Convoy {
 
   /* ─── per-frame ─── */
 
-  update(dt, drones) {
+  update(dt, drones, listenerPos) {
     // Auto-defenses
-    for (const def of this._defenses) def.update(dt, drones)
+    for (const def of this._defenses) def.update(dt, drones, listenerPos)
 
-    // Ship ambient noise
+    // Ship ambient noise – distance-based volume
     if (!this._shipNoisePlaying) {
-      this.audio.startLoop('shipNoise', 0.3)
+      this.audio.startLoop('shipNoise', 0)
       this._shipNoisePlaying = true
+    }
+    if (listenerPos) {
+      const dist = this.getWarshipPosition().distanceTo(listenerPos)
+      const vol = 0.35 * Math.max(0, 1 - dist / 600)
+      this.audio.setLoopVolume('shipNoise', vol)
     }
 
     // Gentle ship rocking
