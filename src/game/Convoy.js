@@ -105,29 +105,21 @@ class AutoDefense {
       }
 
       if (this.opts.type === 'pvo') {
-        // Launch from WEAPON point orientation with ~40 deg elevation,
-        // then homing logic will gradually pull it toward the target.
-        const launchDir = new THREE.Vector3(0, 1, 0)
-        if (this._firingNode) {
-          this._firingNode.getWorldQuaternion(_q)
-        } else {
-          this._weaponRoot.getWorldQuaternion(_q)
-        }
-        launchDir.applyQuaternion(_q).normalize()
-
-        // Enforce at least 40° upward launch while keeping heading.
-        const minY = Math.sin(this._launchElevation)
-        if (launchDir.y < minY) {
-          _tmp2.copy(launchDir)
+        // Diagonal launch toward target heading, then homing takes over.
+        _tmp2.copy(aimPos).sub(firePos)
+        _tmp2.y = 0
+        if (_tmp2.lengthSq() < 1e-6) {
+          this._weaponRoot.getWorldDirection(_tmp2)
           _tmp2.y = 0
-          if (_tmp2.lengthSq() < 1e-6) {
-            _tmp2.set(0, 0, 1)
-          } else {
-            _tmp2.normalize()
-          }
-          _tmp2.multiplyScalar(Math.cos(this._launchElevation))
-          launchDir.set(_tmp2.x, minY, _tmp2.z).normalize()
         }
+        if (_tmp2.lengthSq() < 1e-6) _tmp2.set(0, 0, 1)
+        _tmp2.normalize()
+
+        const launchDir = new THREE.Vector3(
+          _tmp2.x * Math.cos(this._launchElevation),
+          Math.sin(this._launchElevation),
+          _tmp2.z * Math.cos(this._launchElevation)
+        ).normalize()
 
         // Homing missile
         this.projMgr.spawnHoming(firePos, nearest, {

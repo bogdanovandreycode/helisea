@@ -22,6 +22,8 @@ const PHASE_DIVE   = 'dive'     // parabolic kamikaze dive toward ship
 const CRUISE_ALT     = 65       // units above sea
 const DIVE_START_DIST = 180     // horizontal dist to target at which dive begins
 const DIVE_DURATION  = 5.0      // seconds from start of dive to impact
+const DRONE_BODY_YAW_OFFSET = Math.PI / 2
+const DRONE_ROTOR_X_FIX = -Math.PI / 2
 
 /* ─────────────────────── Drone ─────────────────────── */
 export class Drone {
@@ -68,6 +70,8 @@ export class Drone {
     const body = _bodyGltf.scene.clone(true)
     hideCollision(body)
     enableShadows(body)
+    // Model forward axis correction (it was flying sideways).
+    body.rotation.y = DRONE_BODY_YAW_OFFSET
     this.root.add(body)
 
     const vintNode = findNode(body, 'VINT')
@@ -75,6 +79,8 @@ export class Drone {
       const vint = _vintGltf.scene.clone(true)
       hideCollision(vint)
       enableShadows(vint)
+      // Correct rotor mesh orientation so spin axis is vertical.
+      vint.rotation.x = DRONE_ROTOR_X_FIX
       vintNode.add(vint)
       this._vint = vint
     }
@@ -179,7 +185,7 @@ export class Drone {
   }
 
   _spinRotor(dt) {
-    if (this._vint) this._vint.rotation.y += this._vintSpd * dt
+    if (this._vint) this._vint.rotation.z += this._vintSpd * dt
   }
 
   getRadius() { return 5 }
