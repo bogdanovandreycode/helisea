@@ -45,23 +45,43 @@ class AutoDefense {
     this._launchElevation = THREE.MathUtils.degToRad(40)
   }
 
-  update(dt, drones, listenerPos) {
+  update(dt, drones, listenerPos, reservedTargets = null) {
     if (!drones.length) return
 
     const wPos = new THREE.Vector3()
     this._weaponRoot.getWorldPosition(wPos)
 
-    let nearest = null, nearestDist = Infinity
+    let nearest = null
+    let nearestDist = Infinity
+    let fallbackTarget = null
+    let fallbackDist = Infinity
+
     for (const d of drones) {
       if (!d.isAlive()) continue
       const dist = d.getPosition().distanceTo(wPos)
-      if (dist < this.opts.range && dist < nearestDist) {
+      if (dist >= this.opts.range) continue
+
+      if (dist < fallbackDist) {
+        fallbackDist = dist
+        fallbackTarget = d
+      }
+
+      if (reservedTargets?.has(d)) continue
+
+      if (dist < nearestDist) {
         nearestDist = dist
         nearest = d
       }
     }
 
+    if (!nearest && fallbackTarget) {
+      nearest = fallbackTarget
+      nearestDist = fallbackDist
+    }
+
     if (!nearest) { this._rotating = false; return }
+
+    if (reservedTargets) reservedTargets.add(nearest)
 
     // Predict target position a bit ahead to reduce misses.
     const targetPos = nearest.getPosition()
@@ -415,7 +435,11 @@ export class Convoy {
 
   update(dt, drones, listenerPos) {
     // Auto-defenses
-    for (const def of this._defenses) def.update(dt, drones, listenerPos)
+    const reservedPvoTargets = new Set()
+    for (const def of this._defenses) {
+      const reservedTargets = def.opts.type === 'pvo' ? reservedPvoTargets : null
+      def.update(dt, drones, listenerPos, reservedTargets)
+    }
 
     // Ship ambient noise disabled by request.
     if (this._shipNoisePlaying) {
