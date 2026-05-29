@@ -111,6 +111,9 @@ export class World {
     sun.position.set(120, 250, -80)
     sun.castShadow = true
     sun.shadow.mapSize.set(2048, 2048)
+    sun.shadow.bias = -0.00012
+    sun.shadow.normalBias = 0.03
+    sun.shadow.radius = 1.6
     sun.shadow.camera.near = 1
     sun.shadow.camera.far  = 800
     const sc = sun.shadow.camera

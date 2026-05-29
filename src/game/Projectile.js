@@ -3,8 +3,30 @@ import * as THREE from 'three'
 /* ─────────────── shared materials ─────────────── */
 const _DRONE_PROJ_MAT  = new THREE.MeshBasicMaterial({ color: 0xff2200 })
 const _TRACER_MAT      = new THREE.MeshBasicMaterial({ color: 0xffff44 })
+const _PLAYER_TRACER_CORE_MAT = new THREE.MeshBasicMaterial({ color: 0xfffdc2 })
+const _PLAYER_TRACER_HALO_MAT = new THREE.MeshBasicMaterial({
+  color: 0xffe14d,
+  transparent: true,
+  opacity: 0.5,
+  blending: THREE.AdditiveBlending,
+  depthWrite: false,
+})
+const _PLAYER_TRACER_TIP_MAT = new THREE.MeshBasicMaterial({
+  color: 0xffff66,
+  transparent: true,
+  opacity: 0.95,
+  blending: THREE.AdditiveBlending,
+  depthWrite: false,
+})
+const _PLAYER_TRACER_GLOW_MAT = new THREE.MeshBasicMaterial({
+  color: 0xfff07a,
+  transparent: true,
+  opacity: 0.42,
+  blending: THREE.AdditiveBlending,
+  depthWrite: false,
+})
 const _HOMING_MAT      = new THREE.MeshBasicMaterial({ color: 0x00eeff })
-const TRACER_LEN       = 18   // units
+const TRACER_LEN       = 9   // units
 const _UP             = new THREE.Vector3(0, 1, 0)
 
 /* Homing visual FX tuning */
@@ -141,15 +163,51 @@ export class Projectile {
   }
 
   buildMeshSync() {
-    if (this.type === 'player' || this.type === 'cannon') {
-      // Yellow tracer – thin elongated cylinder along direction
-      const len = this.type === 'player' ? TRACER_LEN : TRACER_LEN * 0.7
+    if (this.type === 'player') {
+      const len = TRACER_LEN
+      const q = new THREE.Quaternion().setFromUnitVectors(_UP, this.direction)
+      const group = new THREE.Group()
+
+      const core = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.035, 0.05, len, 5),
+        _PLAYER_TRACER_CORE_MAT
+      )
+      group.add(core)
+
+      const halo = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.09, 0.13, len * 0.94, 6),
+        _PLAYER_TRACER_HALO_MAT
+      )
+      halo.position.y = -len * 0.02
+      group.add(halo)
+
+      const glow = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.14, 0.19, len * 0.7, 6),
+        _PLAYER_TRACER_GLOW_MAT
+      )
+      glow.position.y = -len * 0.08
+      group.add(glow)
+
+      const tip = new THREE.Mesh(
+        new THREE.SphereGeometry(0.12, 7, 6),
+        _PLAYER_TRACER_TIP_MAT
+      )
+      tip.position.y = len * 0.5 - 0.2
+      group.add(tip)
+
+      this._mesh = group
+      this._mesh.quaternion.copy(q)
+      this._mesh.position.copy(this.position).addScaledVector(this.direction, -len / 2)
+      this.scene.add(this._mesh)
+      return
+    }
+
+    if (this.type === 'cannon') {
+      const len = TRACER_LEN * 0.7
       const geo = new THREE.CylinderGeometry(0.07, 0.07, len, 4)
       this._mesh = new THREE.Mesh(geo, _TRACER_MAT)
-      // Rotate cylinder (default Y-axis) to align with direction
-      const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), this.direction)
+      const q = new THREE.Quaternion().setFromUnitVectors(_UP, this.direction)
       this._mesh.quaternion.copy(q)
-      // Centre the trail: mesh centre is half-trail behind current position
       this._mesh.position.copy(this.position).addScaledVector(this.direction, -len / 2)
       this.scene.add(this._mesh)
       return

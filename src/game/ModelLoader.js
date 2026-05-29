@@ -6,8 +6,44 @@ const _loader = new GLTFLoader()
 /** Load a GLB file; returns { scene, animations, … } */
 export function loadGLB(url) {
   return new Promise((resolve, reject) =>
-    _loader.load(url, resolve, undefined, reject)
+    _loader.load(url, gltf => {
+      _configureGltfMaterials(gltf.scene)
+      resolve(gltf)
+    }, undefined, reject)
   )
+}
+
+function _configureGltfMaterials(root) {
+  root.traverse(obj => {
+    if (!obj.isMesh) return
+
+    const materials = Array.isArray(obj.material) ? obj.material : [obj.material]
+    for (const material of materials) {
+      if (!material) continue
+
+      material.precision = 'mediump'
+      material.needsUpdate = true
+
+      _configureTexture(material.map, true)
+      _configureTexture(material.emissiveMap, true)
+      _configureTexture(material.normalMap)
+      _configureTexture(material.roughnessMap)
+      _configureTexture(material.metalnessMap)
+      _configureTexture(material.aoMap)
+      _configureTexture(material.alphaMap)
+    }
+  })
+}
+
+function _configureTexture(texture, isColorTexture = false) {
+  if (!texture) return
+
+  texture.generateMipmaps = true
+  texture.minFilter = THREE.LinearMipmapLinearFilter
+  texture.magFilter = THREE.LinearFilter
+  texture.anisotropy = 4
+  if (isColorTexture) texture.colorSpace = THREE.SRGBColorSpace
+  texture.needsUpdate = true
 }
 
 /**
@@ -81,6 +117,18 @@ export function enableShadows(root) {
     if (obj.isMesh) {
       obj.castShadow = true
       obj.receiveShadow = true
+    }
+  })
+}
+
+/**
+ * Configure shadow participation on all meshes in a GLTF scene.
+ */
+export function setShadowMode(root, { castShadow = true, receiveShadow = true } = {}) {
+  root.traverse(obj => {
+    if (obj.isMesh) {
+      obj.castShadow = castShadow
+      obj.receiveShadow = receiveShadow
     }
   })
 }

@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { loadGLB, findNode, hideCollision, enableShadows } from './ModelLoader.js'
+import { loadGLB, findNode, hideCollision, enableShadows, setShadowMode } from './ModelLoader.js'
 import { MODELS } from './assets.js'
 
 const _PI2  = Math.PI * 2
@@ -86,6 +86,7 @@ export class Helicopter {
     this._bodyScene = bodyGltf.scene
     this._collisionMeshes = hideCollision(this._bodyScene)
     enableShadows(this._bodyScene)
+    setShadowMode(this._bodyScene, { castShadow: false, receiveShadow: true })
     this.root.add(this._bodyScene)
 
     /* rotor – attach to VINT node */
@@ -94,6 +95,7 @@ export class Helicopter {
       const vint = vintGltf.scene
       hideCollision(vint)
       enableShadows(vint)
+      setShadowMode(vint, { castShadow: false, receiveShadow: true })
       vintNode.add(vint)
       this._vint = vint
     }

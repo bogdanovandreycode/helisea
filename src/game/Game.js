@@ -549,6 +549,7 @@ export class Game {
     this._renderer = new THREE.WebGLRenderer({ antialias: true })
     this._renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
     this._renderer.setSize(window.innerWidth, window.innerHeight)
+    this._renderer.outputColorSpace = THREE.SRGBColorSpace
     this._renderer.shadowMap.enabled = true
     this._renderer.shadowMap.type    = THREE.PCFSoftShadowMap
     this._renderer.toneMapping       = THREE.ACESFilmicToneMapping
