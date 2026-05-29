@@ -14,10 +14,10 @@ const OCEAN_VERT = /* glsl */`
     vUv = uv;
     vec3 pos = position;
     // Layered Gerstner-ish waves
-    pos.y += wave(pos.xz, 0.045, 1.1,  1.8, vec2( 0.9,  0.7));
-    pos.y += wave(pos.xz, 0.07,  0.9,  1.1, vec2(-0.6,  1.0));
-    pos.y += wave(pos.xz, 0.11,  1.6,  0.6, vec2( 0.5, -0.5));
-    pos.y += wave(pos.xz, 0.03,  0.45, 2.2, vec2( 1.0, -0.3));
+    pos.y += wave(pos.xz, 0.045, 1.1,  2.7, vec2( 0.9,  0.7));
+    pos.y += wave(pos.xz, 0.07,  0.9,  1.65, vec2(-0.6,  1.0));
+    pos.y += wave(pos.xz, 0.11,  1.6,  0.9, vec2( 0.5, -0.5));
+    pos.y += wave(pos.xz, 0.03,  0.45, 3.3, vec2( 1.0, -0.3));
     vWaveHeight = pos.y;
     vWorldPos = (modelMatrix * vec4(pos, 1.0)).xyz;
     gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
@@ -37,29 +37,31 @@ const OCEAN_FRAG = /* glsl */`
     // Scroll UV to simulate convoy movement
     uv.y -= uScrollZ * 0.0004;
 
-    vec2 uv1 = uv * 12.0 + vec2( uTime * 0.04,  uTime * 0.025);
-    vec2 uv2 = uv * 20.0 + vec2(-uTime * 0.03,  uTime * 0.05);
-    vec2 uv3 = uv * 36.0 + vec2( uTime * 0.02, -uTime * 0.03);
+    vec2 uv1 = uv * 9.5 + vec2( uTime * 0.03,  uTime * 0.02);
+    vec2 uv2 = uv * 16.0 + vec2(-uTime * 0.025,  uTime * 0.04);
+    vec2 uv3 = uv * 24.0 + vec2( uTime * 0.018, -uTime * 0.022);
+    vec2 uv4 = uv * 13.0 + vec2(-uTime * 0.012, uTime * 0.017);
 
-    float w1 = 0.5 + 0.5 * sin(uv1.x * 6.28 + uv1.y * 3.14);
-    float w2 = 0.5 + 0.5 * sin(uv2.x * 4.0  + uv2.y * 8.0);
-    float ripple = 0.5 + 0.5 * sin(uv3.x * 11.0 + uv3.y * 7.0);
-    float foam = w1 * w2;
+    float w1 = 0.5 + 0.5 * sin(uv1.x * 5.9 + uv1.y * 3.3);
+    float w2 = 0.5 + 0.5 * sin(uv2.x * 3.7 + uv2.y * 6.9);
+    float w3 = 0.5 + 0.5 * sin(uv4.x * 4.8 - uv4.y * 5.6);
+    float ripple = 0.5 + 0.5 * sin(uv3.x * 8.0 + uv3.y * 5.2 + w2 * 1.8);
+    float foam = mix(w1 * w2, w2 * w3, 0.5);
 
     vec3 viewDir = normalize(uCameraPos - vWorldPos);
     float fresnel = pow(1.0 - max(viewDir.y, 0.0), 2.4);
-    float crest = smoothstep(0.7, 2.2, vWaveHeight);
-    float sparkle = smoothstep(0.78, 1.0, ripple) * (0.18 + 0.82 * foam);
+    float crest = smoothstep(1.1, 3.2, vWaveHeight);
+    float sparkle = smoothstep(0.88, 1.0, ripple) * (0.08 + 0.34 * foam) * (0.2 + 0.8 * crest);
 
     vec3 deep    = vec3(0.02, 0.07, 0.16);
     vec3 shallow = vec3(0.05, 0.18, 0.31);
     vec3 moonlit = vec3(0.15, 0.31, 0.44);
     vec3 foamCol = vec3(0.48, 0.62, 0.74);
 
-    vec3 col = mix(deep, shallow, foam * 0.35 + crest * 0.14);
+    vec3 col = mix(deep, shallow, foam * 0.22 + crest * 0.18);
     col = mix(col, moonlit, fresnel * 0.28);
-    col += moonlit * sparkle * (0.08 + fresnel * 0.12);
-    col = mix(col, foamCol, max(0.0, foam - 0.72) * 1.8 + crest * 0.08);
+    col += moonlit * sparkle * (0.04 + fresnel * 0.06);
+    col = mix(col, foamCol, max(0.0, foam - 0.82) * 0.45 + crest * 0.04);
 
     gl_FragColor = vec4(col, 1.0);
   }
