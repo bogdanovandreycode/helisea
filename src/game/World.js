@@ -8,7 +8,7 @@ export const LIGHTING_PRESETS = {
     fogDensity: 0.0012,
     skyTop: 0x4f86c6,
     skyBottom: 0xb7dbf2,
-    cockpitLightIntensity: 0.25,
+    cockpitLightIntensity: 0.0625,
     instrumentEmissiveIntensity: 0.5,
   },
   evening: {
@@ -18,7 +18,7 @@ export const LIGHTING_PRESETS = {
     fogDensity: 0.0017,
     skyTop: 0x1c3669,
     skyBottom: 0xc17d59,
-    cockpitLightIntensity: 0.85,
+    cockpitLightIntensity: 0.2125,
     instrumentEmissiveIntensity: 1.2,
   },
   night: {
@@ -28,7 +28,7 @@ export const LIGHTING_PRESETS = {
     fogDensity: 0.0022,
     skyTop: 0x050b1d,
     skyBottom: 0x183354,
-    cockpitLightIntensity: 1.5,
+    cockpitLightIntensity: 0.375,
     instrumentEmissiveIntensity: 2.0,
   },
 }
