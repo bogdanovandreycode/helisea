@@ -14,6 +14,9 @@ const CARGO_OFFSETS = [
   new THREE.Vector3(   0,  0,  260),   // far rear
 ]
 
+const CARGO_SINK_DURATION = 8.5
+const CARGO_SINK_DEPTH = 26
+
 function optimizeShipMaterials(root) {
   root.traverse(obj => {
     if (!obj.isMesh || !obj.material) return
@@ -217,6 +220,7 @@ export class Convoy {
     this.cargoHP       = []
     this.cargoMaxHP    = 100
     this.cargoCollision = []    // [meshes[]] per cargo ship
+    this._cargoSinkStates = []
 
     /* auto-defenses */
     this._defenses = []
@@ -308,6 +312,7 @@ export class Convoy {
       this.cargoRoots.push(root)
       this.cargoHP.push(this.cargoMaxHP)
       this.cargoCollision.push(collMeshes)
+      this._cargoSinkStates.push(this._createCargoSinkState())
     }
   }
 
@@ -442,16 +447,38 @@ export class Convoy {
   _sinkCargo(i) {
     const root = this.cargoRoots[i]
     if (!root) return
-    // Simple sink animation
-    let t = 0
-    const tick = () => {
-      t += 0.016
-      root.position.y -= 0.5
-      root.rotation.z += 0.01
-      if (t < 2) requestAnimationFrame(tick)
-      else this.scene.remove(root)
+    const state = this._cargoSinkStates[i] || this._createCargoSinkState()
+    if (state.active || state.completed) return
+
+    state.active = true
+    state.elapsed = 0
+    state.startY = root.position.y
+    state.startX = root.rotation.x
+    state.startZ = root.rotation.z
+    state.sinkDepth = CARGO_SINK_DEPTH + Math.random() * 8
+    state.rollTarget = THREE.MathUtils.degToRad(18 + Math.random() * 10) * state.rollDir
+    state.pitchTarget = THREE.MathUtils.degToRad(-4 - Math.random() * 5)
+    state.duration = CARGO_SINK_DURATION + Math.random() * 1.5
+    state.hideDelay = 1.2
+
+    this._cargoSinkStates[i] = state
+  }
+
+  _createCargoSinkState() {
+    return {
+      active: false,
+      completed: false,
+      elapsed: 0,
+      duration: CARGO_SINK_DURATION,
+      hideDelay: 0,
+      startY: 0,
+      startX: 0,
+      startZ: 0,
+      sinkDepth: CARGO_SINK_DEPTH,
+      rollTarget: 0,
+      pitchTarget: 0,
+      rollDir: Math.random() < 0.5 ? -1 : 1,
     }
-    requestAnimationFrame(tick)
   }
 
   isDefeated() {
@@ -482,9 +509,40 @@ export class Convoy {
     }
     for (let i = 0; i < this.cargoRoots.length; i++) {
       const r = this.cargoRoots[i]
+      const sink = this._cargoSinkStates[i]
       if (r) {
-        r.rotation.z = Math.sin(t * 0.4 + i * 1.3) * 0.01
-        r.rotation.x = Math.sin(t * 0.3 + i * 0.8) * 0.005
+        if (sink?.active) {
+          sink.elapsed += dt
+          const phase = Math.min(sink.elapsed / sink.duration, 1)
+          const eased = 1 - Math.pow(1 - phase, 2.4)
+          const wobbleFade = 1 - phase
+
+          r.position.y = sink.startY - sink.sinkDepth * eased
+          r.rotation.z =
+            sink.startZ +
+            sink.rollTarget * eased +
+            Math.sin(t * 1.7 + i * 0.9) * 0.02 * wobbleFade
+          r.rotation.x =
+            sink.startX +
+            sink.pitchTarget * eased +
+            Math.sin(t * 1.2 + i * 0.6) * 0.01 * wobbleFade
+
+          if (phase >= 1) {
+            sink.active = false
+            sink.completed = true
+            sink.elapsed = 0
+            r.visible = false
+          }
+        } else if (sink?.completed) {
+          sink.elapsed += dt
+          if (sink.elapsed >= sink.hideDelay) {
+            r.position.y = sink.startY - sink.sinkDepth
+          }
+        } else {
+          r.rotation.z = Math.sin(t * 0.4 + i * 1.3) * 0.01
+          r.rotation.x = Math.sin(t * 0.3 + i * 0.8) * 0.005
+          r.position.y = CARGO_OFFSETS[i].y
+        }
       }
     }
   }
@@ -494,8 +552,15 @@ export class Convoy {
     this.cargoHP   = this.cargoHP.map(() => this.cargoMaxHP)
     this.audio.stopLoop('shipNoise')
     this._shipNoisePlaying = false
-    for (const r of this.cargoRoots) {
-      if (r) { r.position.y = 0; r.rotation.z = 0 }
+    for (let i = 0; i < this.cargoRoots.length; i++) {
+      const r = this.cargoRoots[i]
+      const sink = this._cargoSinkStates[i] || this._createCargoSinkState()
+      this._cargoSinkStates[i] = this._createCargoSinkState()
+      if (r) {
+        r.visible = true
+        r.position.copy(CARGO_OFFSETS[i])
+        r.rotation.set(0, 0, 0)
+      }
     }
   }
 }

@@ -1,5 +1,38 @@
 import * as THREE from 'three'
 
+export const LIGHTING_PRESETS = {
+  day: {
+    ambientIntensity: 0.8,
+    sunIntensity: 2.0,
+    rimIntensity: 0.3,
+    fogDensity: 0.0012,
+    skyTop: 0x4f86c6,
+    skyBottom: 0xb7dbf2,
+    cockpitLightIntensity: 0.25,
+    instrumentEmissiveIntensity: 0.5,
+  },
+  evening: {
+    ambientIntensity: 0.3,
+    sunIntensity: 0.8,
+    rimIntensity: 0.2,
+    fogDensity: 0.0017,
+    skyTop: 0x1c3669,
+    skyBottom: 0xc17d59,
+    cockpitLightIntensity: 0.85,
+    instrumentEmissiveIntensity: 1.2,
+  },
+  night: {
+    ambientIntensity: 0.05,
+    sunIntensity: 0.1,
+    rimIntensity: 0.12,
+    fogDensity: 0.0022,
+    skyTop: 0x050b1d,
+    skyBottom: 0x183354,
+    cockpitLightIntensity: 1.5,
+    instrumentEmissiveIntensity: 2.0,
+  },
+}
+
 const OCEAN_VERT = /* glsl */`
   uniform float uTime;
   varying vec2  vUv;
@@ -91,6 +124,11 @@ export class World {
     this._camera    = camera
     this._scrollZ   = 0   // accumulated scroll for ocean UV
     this._oceanMat  = null
+    this._ambient   = null
+    this._sun       = null
+    this._rim       = null
+    this._skyMat    = null
+    this._timeOfDay = 'night'
     this._setup()
   }
 
@@ -106,32 +144,32 @@ export class World {
   }
 
   _setupLighting() {
-    const ambient = new THREE.AmbientLight(0x88aacc, 0.7)
-    this._scene.add(ambient)
+    this._ambient = new THREE.AmbientLight(0x88aacc, 0.7)
+    this._scene.add(this._ambient)
 
-    const sun = new THREE.DirectionalLight(0xfff5e0, 1.8)
-    sun.position.set(120, 250, -80)
-    sun.castShadow = true
-    sun.shadow.mapSize.set(2048, 2048)
-    sun.shadow.bias = -0.00012
-    sun.shadow.normalBias = 0.03
-    sun.shadow.radius = 1.6
-    sun.shadow.camera.near = 1
-    sun.shadow.camera.far  = 800
-    const sc = sun.shadow.camera
+    this._sun = new THREE.DirectionalLight(0xfff5e0, 1.8)
+    this._sun.position.set(120, 250, -80)
+    this._sun.castShadow = true
+    this._sun.shadow.mapSize.set(2048, 2048)
+    this._sun.shadow.bias = -0.00012
+    this._sun.shadow.normalBias = 0.03
+    this._sun.shadow.radius = 1.6
+    this._sun.shadow.camera.near = 1
+    this._sun.shadow.camera.far  = 800
+    const sc = this._sun.shadow.camera
     sc.left = sc.bottom = -300
     sc.right = sc.top = 300
-    this._scene.add(sun)
+    this._scene.add(this._sun)
 
     // Rim light from opposite side for depth
-    const rim = new THREE.DirectionalLight(0x2244aa, 0.4)
-    rim.position.set(-80, 60, 120)
-    this._scene.add(rim)
+    this._rim = new THREE.DirectionalLight(0x2244aa, 0.4)
+    this._rim.position.set(-80, 60, 120)
+    this._scene.add(this._rim)
   }
 
   _setupSky() {
     const geo = new THREE.SphereGeometry(1400, 24, 12)
-    const mat = new THREE.ShaderMaterial({
+    this._skyMat = new THREE.ShaderMaterial({
       uniforms: {
         uTop:    { value: new THREE.Color(0x0a2050) },
         uBottom: { value: new THREE.Color(0x7ab3d8) },
@@ -141,7 +179,7 @@ export class World {
       side: THREE.BackSide,
       depthWrite: false,
     })
-    this._scene.add(new THREE.Mesh(geo, mat))
+    this._scene.add(new THREE.Mesh(geo, this._skyMat))
   }
 
   _setupOcean() {
@@ -160,6 +198,23 @@ export class World {
     const ocean = new THREE.Mesh(geo, this._oceanMat)
     ocean.receiveShadow = true
     this._scene.add(ocean)
+    this.setTimeOfDay(this._timeOfDay)
+  }
+
+  setTimeOfDay(mode) {
+    const preset = LIGHTING_PRESETS[mode] || LIGHTING_PRESETS.night
+    this._timeOfDay = LIGHTING_PRESETS[mode] ? mode : 'night'
+
+    if (this._ambient) this._ambient.intensity = preset.ambientIntensity
+    if (this._sun) this._sun.intensity = preset.sunIntensity
+    if (this._rim) this._rim.intensity = preset.rimIntensity
+    if (this._scene.fog) this._scene.fog.density = preset.fogDensity
+    if (this._skyMat) {
+      this._skyMat.uniforms.uTop.value.setHex(preset.skyTop)
+      this._skyMat.uniforms.uBottom.value.setHex(preset.skyBottom)
+    }
+
+    return preset
   }
 
   /** dt in seconds. speed in world-units/second (simulates convoy movement). */

@@ -16,6 +16,7 @@ const WATER_SURFACE_Y = 0
 const WATER_CONTACT_HEIGHT = 4.5
 const WATER_CONTACT_DAMAGE = 12
 const WATER_CONTACT_COOLDOWN = 0.6
+const DEFAULT_TIME_OF_DAY = 'night'
 
 /* Shared raycaster for BVH collision */
 const _ray       = new THREE.Raycaster()
@@ -134,6 +135,9 @@ export class Game {
 
     this._heli = new Helicopter(this._scene, this._camera, this._projMgr, this._audio)
     await this._heli.init()
+
+    this._world.setTimeOfDay(DEFAULT_TIME_OF_DAY)
+    this._heli.setTimeOfDay(DEFAULT_TIME_OF_DAY)
 
     // Position helicopter at spawn (off-screen before game starts)
     const spawnPos = this._convoy.getHelicopterSpawnPosition()

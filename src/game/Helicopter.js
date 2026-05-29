@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import { loadGLB, findNode, hideCollision, enableShadows, setShadowMode } from './ModelLoader.js'
 import { MODELS } from './assets.js'
+import { LIGHTING_PRESETS } from './World.js'
 
 const _PI2  = Math.PI * 2
 const _HALF = Math.PI / 2
@@ -17,6 +18,8 @@ const MAX_ALTITUDE = 180
 const ENGINE_RATE_BASE = 1.0
 const ENGINE_RATE_MIN  = 0.86
 const ENGINE_RATE_MAX  = 1.28
+const COCKPIT_LIGHT_LAYER = 1
+const COCKPIT_GLOW_COLOR = 0x66ffcc
 
 /* Weapon */
 const FIRE_RATE    = 0.14  // seconds between shots
@@ -67,6 +70,11 @@ export class Helicopter {
     this._freeLookActive = false
     this._freeLookRestorePitch = 0
     this._freeLookRestoreYaw = 0
+    this._cockpitNode = null
+    this._glassNode = null
+    this._cockpitLight = null
+    this._cockpitMaterials = []
+    this._timeOfDay = 'night'
 
     /* smoothed tilt */
     this._tiltX = 0  // pitch tilt of body
@@ -109,10 +117,17 @@ export class Helicopter {
       this._cameraNode = this.root
     }
     this._cameraBaseRotation.copy(this._cameraNode.rotation)
+    this.camera.layers.enable(COCKPIT_LIGHT_LAYER)
 
     /* weapon mounts */
     this._weaponL = findNode(this._bodyScene, 'WEAPON_LEFT')
     this._weaponR = findNode(this._bodyScene, 'WEAPON_RIGHT')
+
+    this._cockpitNode = findNode(this._bodyScene, 'MD_501:Cockpit')
+    this._glassNode = findNode(this._bodyScene, 'MD_501:Glass')
+    this._configureCabinMaterials()
+    this._setupCockpitLight()
+    this.setTimeOfDay(this._timeOfDay)
   }
 
   setPosition(pos) {
@@ -349,5 +364,75 @@ export class Helicopter {
       this.camera.position.set(0, 0, 0)
       this.camera.rotation.set(0, 0, 0)
     }
+  }
+
+  setTimeOfDay(mode) {
+    const preset = LIGHTING_PRESETS[mode] || LIGHTING_PRESETS.night
+    this._timeOfDay = LIGHTING_PRESETS[mode] ? mode : 'night'
+
+    if (this._cockpitLight) {
+      this._cockpitLight.intensity = preset.cockpitLightIntensity
+      this._cockpitLight.distance = 3
+    }
+
+    for (const material of this._cockpitMaterials) {
+      material.emissive.setHex(COCKPIT_GLOW_COLOR)
+      material.emissiveIntensity = preset.instrumentEmissiveIntensity
+      material.needsUpdate = true
+    }
+
+  }
+
+  _configureCabinMaterials() {
+    if (!this._bodyScene) return
+
+    const cockpitMaterials = new Set()
+    this._bodyScene.traverse(obj => {
+      if (!obj.isMesh || !obj.material) return
+
+      const materials = Array.isArray(obj.material) ? obj.material : [obj.material]
+      for (const material of materials) {
+        if (!material) continue
+
+        const name = (material.name || '').toLowerCase()
+        if (name.includes('glass')) {
+          material.metalness = 0
+          material.roughness = 0.14
+          material.transparent = true
+          material.opacity = Math.min(material.opacity ?? 1, 0.72)
+        } else if (name.includes('cockpit')) {
+          material.metalness = 0.16
+          material.roughness = 0.92
+          cockpitMaterials.add(material)
+        } else if (name.includes('helicopter')) {
+          material.metalness = 0.22
+          material.roughness = 0.82
+        }
+
+        material.needsUpdate = true
+      }
+    })
+
+    this._cockpitMaterials = [...cockpitMaterials]
+  }
+
+  _setupCockpitLight() {
+    const lightParent = this._cockpitNode || this._cameraNode
+    if (!lightParent || this._cockpitLight) return
+
+    this._cockpitLight = new THREE.PointLight(COCKPIT_GLOW_COLOR, 1.5, 3, 2)
+    this._cockpitLight.position.set(0, 0.35, -0.25)
+    this._cockpitLight.layers.set(COCKPIT_LIGHT_LAYER)
+    lightParent.add(this._cockpitLight)
+
+    const markLayer = root => {
+      if (!root) return
+      root.traverse(obj => {
+        if (obj.isMesh) obj.layers.enable(COCKPIT_LIGHT_LAYER)
+      })
+    }
+
+    markLayer(this._cockpitNode)
+    markLayer(this._glassNode)
   }
 }
