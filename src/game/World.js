@@ -8,7 +8,8 @@ export const LIGHTING_PRESETS = {
     fogDensity: 0.0012,
     skyTop: 0x4f86c6,
     skyBottom: 0xb7dbf2,
-    cockpitLightIntensity: 0.0625,
+    starVisibility: 0.0,
+    cockpitLightIntensity: 0.015625,
     instrumentEmissiveIntensity: 0.5,
   },
   evening: {
@@ -18,7 +19,8 @@ export const LIGHTING_PRESETS = {
     fogDensity: 0.0017,
     skyTop: 0x1c3669,
     skyBottom: 0xc17d59,
-    cockpitLightIntensity: 0.2125,
+    starVisibility: 0.18,
+    cockpitLightIntensity: 0.053125,
     instrumentEmissiveIntensity: 1.2,
   },
   night: {
@@ -28,7 +30,8 @@ export const LIGHTING_PRESETS = {
     fogDensity: 0.0022,
     skyTop: 0x050b1d,
     skyBottom: 0x183354,
-    cockpitLightIntensity: 0.375,
+    starVisibility: 0.72,
+    cockpitLightIntensity: 0.09375,
     instrumentEmissiveIntensity: 2.0,
   },
 }
@@ -111,10 +114,27 @@ const SKY_VERT = /* glsl */`
 const SKY_FRAG = /* glsl */`
   uniform vec3 uTop;
   uniform vec3 uBottom;
+  uniform float uStarVisibility;
   varying vec3 vPos;
+
+  float hash(vec3 p) {
+    p = fract(p * 0.3183099 + vec3(0.1, 0.2, 0.3));
+    p *= 17.0;
+    return fract(p.x * p.y * p.z * (p.x + p.y + p.z));
+  }
+
   void main() {
-    float t = clamp(normalize(vPos).y * 2.0 + 0.5, 0.0, 1.0);
-    gl_FragColor = vec4(mix(uBottom, uTop, t), 1.0);
+    vec3 dir = normalize(vPos);
+    float t = clamp(dir.y * 2.0 + 0.5, 0.0, 1.0);
+    vec3 col = mix(uBottom, uTop, t);
+
+    float starMask = step(0.9974, hash(floor(dir * 180.0)));
+    float starFlicker = 0.7 + 0.3 * hash(floor(dir * 360.0) + vec3(4.0, 9.0, 2.0));
+    float horizonFade = smoothstep(0.08, 0.45, dir.y);
+    float stars = starMask * starFlicker * horizonFade * uStarVisibility;
+    col += vec3(0.85, 0.9, 1.0) * stars;
+
+    gl_FragColor = vec4(col, 1.0);
   }
 `
 
@@ -173,6 +193,7 @@ export class World {
       uniforms: {
         uTop:    { value: new THREE.Color(0x0a2050) },
         uBottom: { value: new THREE.Color(0x7ab3d8) },
+        uStarVisibility: { value: 0 },
       },
       vertexShader:   SKY_VERT,
       fragmentShader: SKY_FRAG,
@@ -212,6 +233,7 @@ export class World {
     if (this._skyMat) {
       this._skyMat.uniforms.uTop.value.setHex(preset.skyTop)
       this._skyMat.uniforms.uBottom.value.setHex(preset.skyBottom)
+      this._skyMat.uniforms.uStarVisibility.value = preset.starVisibility ?? 0
     }
 
     return preset
