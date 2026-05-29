@@ -14,6 +14,31 @@ const CARGO_OFFSETS = [
   new THREE.Vector3(   0,  0,  260),   // far rear
 ]
 
+function optimizeShipMaterials(root) {
+  root.traverse(obj => {
+    if (!obj.isMesh || !obj.material) return
+
+    const materials = Array.isArray(obj.material) ? obj.material : [obj.material]
+    for (const material of materials) {
+      if (!material) continue
+
+      // Ship hull meshes are closed surfaces, so double-sided rendering
+      // only increases the chance of visual artifacts on shallow angles.
+      material.side = THREE.FrontSide
+
+      if (material.map) {
+        material.map.anisotropy = 16
+        material.map.generateMipmaps = false
+        material.map.minFilter = THREE.LinearFilter
+        material.map.magFilter = THREE.LinearFilter
+        material.map.needsUpdate = true
+      }
+
+      material.needsUpdate = true
+    }
+  })
+}
+
 /* ──────────────────── AutoDefense ──────────────────── */
 class AutoDefense {
   /**
@@ -219,6 +244,7 @@ export class Convoy {
 
     const body = warshipGltf.scene
     const collMeshes = hideCollision(body)
+    optimizeShipMaterials(body)
     enableShadows(body)
 
     this.warshipRoot = new THREE.Object3D()
@@ -271,6 +297,7 @@ export class Convoy {
     for (let i = 0; i < CARGO_OFFSETS.length; i++) {
       const scene = gltf.scene.clone(true)
       const collMeshes = hideCollision(scene)
+      optimizeShipMaterials(scene)
       enableShadows(scene)
 
       const root = new THREE.Object3D()
